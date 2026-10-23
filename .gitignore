@@ -51,6 +51,9 @@ yarn-error.log*
 
 # Database & Uploads
 *.db
+*.db-journal
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
 linkmind.db

@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ExternalLink, Calendar, MapPin, Building, Sparkles, Folder, ArrowRight } from 'lucide-react';
 import { Resource } from '../types';
+import { ListingFeedbackWidget } from './ListingFeedbackWidget';
 
 interface ResourceCardProps {
   resource: Resource;
@@ -126,15 +127,22 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ resource }) => {
         )}
       </div>
 
-      {/* Footer controls */}
-      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+      {/* Footer controls: Details, Feedback Widget, Direct Link */}
+      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
         <Link
           to={`/resources/${resource.id}`}
           className="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline flex items-center space-x-1"
         >
-          <span>View Details</span>
+          <span>Details</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </Link>
+
+        <ListingFeedbackWidget
+          resourceId={resource.id}
+          resourceTitle={resource.title}
+          resourceType={resource.type}
+          compact={true}
+        />
 
         {resource.direct_url && (
           <a
@@ -143,7 +151,7 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ resource }) => {
             rel="noopener noreferrer"
             className="flex items-center space-x-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
           >
-            <span>Direct Link</span>
+            <span>Direct</span>
             <ExternalLink className="w-3 h-3" />
           </a>
         )}

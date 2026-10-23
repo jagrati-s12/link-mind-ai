@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Trash2, Shield, Moon, Sun, Database, Smartphone, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Download, Trash2, Shield, Moon, Sun, Database, Smartphone, ShieldCheck, ShieldAlert, Brain, Sparkles, CheckCircle2 } from 'lucide-react';
 import { api } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +13,11 @@ export const Settings: React.FC = () => {
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
   const [totpEnabled, setTotpEnabled] = useState<boolean>(user?.is_totp_enabled || false);
+
+  const { data: learningStats } = useQuery({
+    queryKey: ['learning-stats'],
+    queryFn: api.getModelLearningStats
+  });
 
   useEffect(() => {
     check2FAStatus();
@@ -148,6 +154,85 @@ export const Settings: React.FC = () => {
             <span>{totpEnabled ? 'Manage 2FA Settings' : 'Setup Google Authenticator'}</span>
           </button>
         </div>
+      </div>
+
+      {/* AI Continuous Self-Training & Model Feedback */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2.5">
+            <div className="p-2 bg-indigo-50 dark:bg-indigo-950/60 rounded-xl text-indigo-600 dark:text-indigo-400">
+              <Brain className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">AI Model Continuous Self-Training</h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Every verified listing and classification correction dynamically tunes the extractor models in real time
+              </p>
+            </div>
+          </div>
+          <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+            Active Learning Online
+          </span>
+        </div>
+
+        {/* Metrics Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+          <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <span className="text-[10px] uppercase font-bold text-slate-400">Total Feedback</span>
+            <div className="text-xl font-extrabold text-slate-900 dark:text-white mt-1">
+              {learningStats?.total_feedback_count ?? 0}
+            </div>
+          </div>
+
+          <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <span className="text-[10px] uppercase font-bold text-slate-400">Verified Accurate</span>
+            <div className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
+              {learningStats?.verified_accurate_count ?? 0}
+            </div>
+          </div>
+
+          <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <span className="text-[10px] uppercase font-bold text-slate-400">Corrections Learned</span>
+            <div className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400 mt-1">
+              {learningStats?.user_corrections_count ?? 0}
+            </div>
+          </div>
+
+          <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <span className="text-[10px] uppercase font-bold text-slate-400">Model Accuracy</span>
+            <div className="text-xl font-extrabold text-slate-900 dark:text-white mt-1">
+              {learningStats?.accuracy_rate ?? 100}%
+            </div>
+          </div>
+        </div>
+
+        {/* Active Few-Shot Training Examples */}
+        {learningStats?.recent_corrections && learningStats.recent_corrections.length > 0 && (
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+              Active Few-Shot Prompts (Ingested into Extractor System Prompts):
+            </span>
+            <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar">
+              {learningStats.recent_corrections.map((item) => (
+                <div
+                  key={item.id}
+                  className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-xs flex items-center justify-between gap-3"
+                >
+                  <div className="truncate">
+                    <span className="font-semibold text-slate-900 dark:text-white">{item.original_title}</span>
+                    {item.domain && <span className="text-slate-400 ml-1.5 text-[11px]">({item.domain})</span>}
+                  </div>
+                  <div className="flex items-center space-x-2 shrink-0">
+                    <span className="text-[10px] line-through text-slate-400">{item.original_type}</span>
+                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60">
+                      → {item.corrected_type}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Security & SSRF Protection Status */}

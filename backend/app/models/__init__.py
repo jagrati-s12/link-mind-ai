@@ -40,6 +40,7 @@ class User(Base):
     recommendations = relationship("Recommendation", back_populates="user", cascade="all, delete-orphan")
     applications = relationship("Application", back_populates="user", cascade="all, delete-orphan")
     course_progress = relationship("CourseProgress", back_populates="user", cascade="all, delete-orphan")
+    feedbacks = relationship("ListingFeedback", back_populates="user", cascade="all, delete-orphan")
     roadmaps = relationship("Roadmap", back_populates="user", cascade="all, delete-orphan")
     import_jobs = relationship("ImportJob", back_populates="user", cascade="all, delete-orphan")
 
@@ -126,6 +127,7 @@ class Resource(Base):
     recommendations = relationship("Recommendation", back_populates="resource", cascade="all, delete-orphan")
     applications = relationship("Application", back_populates="resource", cascade="all, delete-orphan")
     course_progress = relationship("CourseProgress", back_populates="resource", cascade="all, delete-orphan")
+    feedbacks = relationship("ListingFeedback", back_populates="resource", cascade="all, delete-orphan")
     outward_relations = relationship("ResourceRelation", foreign_keys="ResourceRelation.source_resource_id", cascade="all, delete-orphan")
     inward_relations = relationship("ResourceRelation", foreign_keys="ResourceRelation.target_resource_id", cascade="all, delete-orphan")
 
@@ -281,3 +283,22 @@ class ImportJob(Base):
 
     user = relationship("User", back_populates="import_jobs")
     source = relationship("Source", back_populates="import_jobs")
+
+class ListingFeedback(Base):
+    __tablename__ = "listing_feedbacks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    resource_id = Column(Integer, ForeignKey("resources.id", ondelete="CASCADE"), nullable=False, index=True)
+    is_correct = Column(Boolean, nullable=False, default=True) # True: verified correct, False: correction provided
+    original_type = Column(String(50), nullable=False)
+    corrected_type = Column(String(50), nullable=True)
+    original_title = Column(String(255), default="")
+    corrected_title = Column(String(255), nullable=True)
+    domain = Column(String(255), default="")
+    reason = Column(String(255), default="") # wrong_type, wrong_title, expired, wrong_company, boilerplate
+    notes = Column(Text, default="")
+    created_at = Column(DateTime, default=utc_now)
+
+    user = relationship("User", back_populates="feedbacks")
+    resource = relationship("Resource", back_populates="feedbacks")

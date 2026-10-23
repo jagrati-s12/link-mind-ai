@@ -9,7 +9,9 @@ import {
   SkillGapData,
   Roadmap,
   Application,
-  CourseProgress
+  CourseProgress,
+  ListingFeedback,
+  ModelLearningStats
 } from '../types';
 
 const API_BASE = '/api/v1';
@@ -262,5 +264,25 @@ export const api = {
     fetchJson<import('../types').TOTPStatusResponse>(`${API_BASE}/auth/2fa/status`),
 
   getMe: () =>
-    fetchJson<import('../types').User>(`${API_BASE}/auth/me`)
+    fetchJson<import('../types').User>(`${API_BASE}/auth/me`),
+
+  // AI Continuous Self-Training & Feedback
+  submitFeedback: (data: {
+    resource_id: number;
+    is_correct: boolean;
+    corrected_type?: string;
+    corrected_title?: string;
+    reason?: string;
+    notes?: string;
+  }) =>
+    fetchJson<ListingFeedback>(`${API_BASE}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+
+  getModelLearningStats: () =>
+    fetchJson<ModelLearningStats>(`${API_BASE}/feedback/stats`),
+
+  getResourceFeedback: (resourceId: number) =>
+    fetchJson<ListingFeedback | null>(`${API_BASE}/feedback/resource/${resourceId}`)
 };

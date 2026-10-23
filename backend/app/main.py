@@ -7,7 +7,7 @@ from app.core.db import engine, Base
 from app.api.v1 import (
     auth, sources, imports, resources, collections,
     skills, recommendations, applications, course_tracker, roadmaps,
-    assistant, profile, stats, settings as user_settings
+    assistant, profile, stats, settings as user_settings, feedback
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -52,6 +52,7 @@ app.include_router(assistant.router, prefix=settings.API_V1_STR)
 app.include_router(profile.router, prefix=settings.API_V1_STR)
 app.include_router(stats.router, prefix=settings.API_V1_STR)
 app.include_router(user_settings.router, prefix=settings.API_V1_STR)
+app.include_router(feedback.router, prefix=settings.API_V1_STR)
 
 @app.get("/api/health")
 def health_check():

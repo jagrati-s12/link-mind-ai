@@ -509,3 +509,53 @@ def test_course_tracker_and_isolation_from_applications(client, user_token):
     assert updated_data["current_module"] == "Week 2: Cost Function"
     assert "Completed quiz" in updated_data["notes"]
 
+def test_model_continuous_learning_and_feedback(client, user_token, db_session):
+    """Verify that human feedback trains models dynamically and updates opportunity classifications"""
+    from app.services.learning_engine import get_few_shot_prompt_examples
+
+    headers = {"Authorization": f"Bearer {user_token}"}
+
+    # 1. Create a resource with initially questionable classification
+    res = client.post("/api/v1/resources", json={
+        "title": "Graduate Systems Engineer",
+        "organization": "Cisco",
+        "type": "internship",
+        "direct_url": "https://jobs.cisco.com/role/123",
+        "location": "San Jose, CA"
+    }, headers=headers).json()
+    res_id = res["id"]
+
+    # 2. User reviews listing and submits a correction: "This is a full-time job, not an internship"
+    feedback_resp = client.post("/api/v1/feedback", json={
+        "resource_id": res_id,
+        "is_correct": False,
+        "corrected_type": "job",
+        "corrected_title": "Graduate Systems Engineer (Full-time)",
+        "reason": "Full-time engineering job, not internship",
+        "notes": "Learned from user correction"
+    }, headers=headers)
+    assert feedback_resp.status_code == 200
+    fb_data = feedback_resp.json()
+    assert fb_data["is_correct"] is False
+    assert fb_data["corrected_type"] == "job"
+    assert fb_data["domain"] == "jobs.cisco.com"
+
+    # 3. Verify the resource itself has been reclassified in the database & title updated
+    updated_res = client.get(f"/api/v1/resources/{res_id}", headers=headers).json()
+    assert updated_res["type"] == "job"
+    assert "Full-time" in updated_res["title"]
+    assert updated_res["verification_status"] == "verified"
+
+    # 4. Check feedback stats endpoint
+    stats = client.get("/api/v1/feedback/stats", headers=headers).json()
+    assert stats["total_feedback_count"] >= 1
+    assert stats["user_corrections_count"] >= 1
+    assert stats["active_few_shot_examples"] >= 1
+
+    # 5. Verify the continuous learning engine generates few-shot prompts from this correction
+    few_shot = get_few_shot_prompt_examples(db_session)
+    assert "Graduate Systems Engineer" in few_shot
+    assert "Correct type is 'job'" in few_shot
+    assert "jobs.cisco.com" in few_shot
+
+

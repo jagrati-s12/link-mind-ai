@@ -403,10 +403,16 @@ async def call_llm_json(prompt: str, system_prompt: str) -> Optional[Any]:
 
     return None
 
-async def extract_structured_opportunities(raw_text: str, source_title: str = "", source_url: str = "") -> List[Dict[str, Any]]:
+async def extract_structured_opportunities(
+    raw_text: str,
+    source_title: str = "",
+    source_url: str = "",
+    few_shot_guidance: str = ""
+) -> List[Dict[str, Any]]:
     """
     Extracts structured opportunities from content.
-    Prioritizes configured LLM; gracefully falls back to deterministic heuristic parser.
+    Prioritizes configured LLM with dynamic few-shot continuous learning;
+    gracefully falls back to deterministic heuristic parser.
     Ensures zero hallucination and strict schema compliance.
     """
     system_prompt = (
@@ -419,6 +425,8 @@ async def extract_structured_opportunities(raw_text: str, source_title: str = ""
         "4. Include short source_evidence snippets supporting the extraction.\n"
         "Return a JSON object with key 'opportunities' containing a list of items."
     )
+    if few_shot_guidance:
+        system_prompt += "\n" + few_shot_guidance
     
     prompt = f"Source Title: {source_title}\nSource URL: {source_url}\n\nContent:\n{raw_text[:8000]}"
     

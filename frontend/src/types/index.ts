@@ -251,3 +251,27 @@ export interface TOTPStatusResponse {
   is_totp_enabled: boolean;
   email: string;
 }
+
+export interface ListingFeedback {
+  id: number;
+  user_id: number;
+  resource_id: number;
+  is_correct: boolean;
+  original_type: string;
+  corrected_type?: string | null;
+  original_title: string;
+  corrected_title?: string | null;
+  domain: string;
+  reason: string;
+  notes: string;
+  created_at: string;
+}
+
+export interface ModelLearningStats {
+  total_feedback_count: number;
+  verified_accurate_count: number;
+  user_corrections_count: number;
+  accuracy_rate: number;
+  active_few_shot_examples: number;
+  recent_corrections: ListingFeedback[];
+}

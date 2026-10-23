@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { ApplicationStatus } from '../types';
+import { ListingFeedbackWidget } from '../components/ListingFeedbackWidget';
 
 export const ResourceDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -366,6 +367,13 @@ export const ResourceDetail: React.FC = () => {
               })}
             </div>
           </div>
+
+          {/* AI Continuous Learning & Feedback Widget */}
+          <ListingFeedbackWidget
+            resourceId={resource.id}
+            resourceTitle={resource.title}
+            resourceType={resource.type}
+          />
 
           {/* Personal Notes */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">

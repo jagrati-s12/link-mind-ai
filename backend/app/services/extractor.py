@@ -6,6 +6,7 @@ from app.services.fetcher import fetch_url_content, extract_document_file
 from app.services.ai_adapter import extract_structured_opportunities
 from app.services.matcher import calculate_recommendation
 from app.services.relationship_engine import auto_connect_resources
+from app.services.learning_engine import get_few_shot_prompt_examples
 
 logger = logging.getLogger(__name__)
 
@@ -128,12 +129,15 @@ async def process_source(db: Session, source_id: int) -> Source:
     source.mime_type = fetch_res.mime_type or source.mime_type
     source.content_hash = fetch_res.content_hash
 
-    # Step 2: AI Structured Extraction
+    # Step 2: AI Structured Extraction (with Continuous Model Learning from Human Feedback)
+    few_shot = get_few_shot_prompt_examples(db)
+
     try:
         raw_opps = await extract_structured_opportunities(
             source.raw_content,
             source_title=source.title,
-            source_url=source.original_url or ""
+            source_url=source.original_url or "",
+            few_shot_guidance=few_shot
         )
     except Exception as e:
         logger.exception("AI Extraction failed")

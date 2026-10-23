@@ -471,3 +471,37 @@ class DashboardStatsOut(BaseModel):
     total_resources: int
     total_collections: int
     applications_count: int
+
+# ----------------- Model Continuous Learning / Feedback -----------------
+class ListingFeedbackCreate(BaseModel):
+    resource_id: int
+    is_correct: bool = True
+    corrected_type: Optional[str] = None
+    corrected_title: Optional[str] = None
+    reason: Optional[str] = None
+    notes: Optional[str] = ""
+
+class ListingFeedbackOut(BaseModel):
+    id: int
+    user_id: int
+    resource_id: int
+    is_correct: bool
+    original_type: str
+    corrected_type: Optional[str] = None
+    original_title: str
+    corrected_title: Optional[str] = None
+    domain: str = ""
+    reason: str = ""
+    notes: str = ""
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ModelLearningStatsOut(BaseModel):
+    total_feedback_count: int
+    verified_accurate_count: int
+    user_corrections_count: int
+    accuracy_rate: float
+    active_few_shot_examples: int
+    recent_corrections: List[ListingFeedbackOut] = []

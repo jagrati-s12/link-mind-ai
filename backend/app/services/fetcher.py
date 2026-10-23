@@ -1,4 +1,7 @@
 import os
+import re
+import html
+import json
 import hashlib
 from typing import Tuple, Dict, Any, Optional
 import httpx
@@ -17,6 +20,112 @@ class FetchResult:
         self.mime_type = mime_type
         self.content_hash = content_hash
         self.error = error
+
+async def try_fetch_job_board_api(url: str, client: httpx.AsyncClient) -> Optional[FetchResult]:
+    """
+    Directly extracts job details for SPAs and job board providers
+    (HackerRank, Greenhouse, Lever) that load descriptions asynchronously via JS.
+    """
+    try:
+        # 1. HackerRank Career Page (e.g. hackerrank.com/careers/job?id=8229735)
+        hr_match = re.search(r'hackerrank\.com/careers/job\?.*?\bid=(\d+)', url, re.I)
+        if hr_match:
+            job_id = hr_match.group(1)
+            api_url = f"https://boards-api.greenhouse.io/v1/boards/hackerrank/jobs/{job_id}"
+            resp = await client.get(api_url)
+            if resp.status_code == 200:
+                data = resp.json()
+                title = data.get("title", "Development Engineer Intern")
+                company = "HackerRank"
+                loc = data.get("location", {}).get("name", "Onsite in Bangalore")
+                departments = ", ".join(d.get("name") for d in data.get("departments", []) if d.get("name"))
+                content_html = html.unescape(data.get("content", ""))
+                soup = BeautifulSoup(content_html, "html.parser")
+                desc_text = soup.get_text(separator="\n", strip=True)
+
+                formatted = (
+                    f"{title}\n"
+                    f"Company: {company}\n"
+                    f"Location: {loc}\n"
+                    + (f"Department: {departments}\n" if departments else "")
+                    + f"Application URL: {url}\n\n"
+                    f"About the Role:\n{desc_text}"
+                )
+                c_hash = hashlib.sha256(formatted.encode("utf-8")).hexdigest()
+                return FetchResult(
+                    content=formatted,
+                    title=f"{company} - {title}",
+                    mime_type="text/html",
+                    content_hash=c_hash
+                )
+
+        # 2. Greenhouse Board Pages (boards.greenhouse.io/<company>/jobs/<id>)
+        gh_match = re.search(r'boards\.greenhouse\.io/([^/]+)/jobs/(\d+)', url, re.I)
+        if not gh_match:
+            gh_match = re.search(r'boards\.greenhouse\.io/embed/job\.html\?.*?\bfor=([^&]+).*?\btoken=(\d+)', url, re.I)
+        if gh_match:
+            board, job_id = gh_match.group(1), gh_match.group(2)
+            api_url = f"https://boards-api.greenhouse.io/v1/boards/{board}/jobs/{job_id}"
+            resp = await client.get(api_url)
+            if resp.status_code == 200:
+                data = resp.json()
+                title = data.get("title", "")
+                company = board.capitalize()
+                loc = data.get("location", {}).get("name", "")
+                content_html = html.unescape(data.get("content", ""))
+                soup = BeautifulSoup(content_html, "html.parser")
+                desc_text = soup.get_text(separator="\n", strip=True)
+
+                formatted = (
+                    f"{title}\n"
+                    f"Company: {company}\n"
+                    f"Location: {loc}\n"
+                    f"Application URL: {url}\n\n"
+                    f"{desc_text}"
+                )
+                c_hash = hashlib.sha256(formatted.encode("utf-8")).hexdigest()
+                return FetchResult(
+                    content=formatted,
+                    title=f"{company} - {title}",
+                    mime_type="text/html",
+                    content_hash=c_hash
+                )
+
+        # 3. Lever Postings (jobs.lever.co/<company>/<id>)
+        lever_match = re.search(r'jobs\.lever\.co/([^/]+)/([a-f0-9\-]+)', url, re.I)
+        if lever_match:
+            company, job_id = lever_match.group(1), lever_match.group(2)
+            api_url = f"https://api.lever.co/v0/postings/{company}/{job_id}"
+            resp = await client.get(api_url)
+            if resp.status_code == 200:
+                data = resp.json()
+                title = data.get("text", "")
+                categories = data.get("categories", {})
+                loc = categories.get("location", "")
+                commitment = categories.get("commitment", "")
+                desc_html = html.unescape(data.get("descriptionHtml", "") + "\n" + data.get("additional", ""))
+                soup = BeautifulSoup(desc_html, "html.parser")
+                desc_text = soup.get_text(separator="\n", strip=True)
+
+                formatted = (
+                    f"{title}\n"
+                    f"Company: {company.capitalize()}\n"
+                    f"Location: {loc}\n"
+                    + (f"Type: {commitment}\n" if commitment else "")
+                    + f"Application URL: {url}\n\n"
+                    f"{desc_text}"
+                )
+                c_hash = hashlib.sha256(formatted.encode("utf-8")).hexdigest()
+                return FetchResult(
+                    content=formatted,
+                    title=f"{company.capitalize()} - {title}",
+                    mime_type="text/html",
+                    content_hash=c_hash
+                )
+    except Exception:
+        pass
+
+    return None
 
 async def fetch_url_content(url: str) -> FetchResult:
     """
@@ -39,6 +148,11 @@ async def fetch_url_content(url: str) -> FetchResult:
             timeout=settings.REQUEST_TIMEOUT_SECONDS,
             max_redirects=5
         ) as client:
+            # Check if URL matches known job board SPA APIs (HackerRank, Greenhouse, Lever)
+            job_board_res = await try_fetch_job_board_api(url, client)
+            if job_board_res:
+                return job_board_res
+
             response = await client.get(url, headers=headers)
             
             # Recheck final URL destination after redirects for SSRF
@@ -68,14 +182,53 @@ async def fetch_url_content(url: str) -> FetchResult:
             if "text/html" in content_type or "application/xhtml" in content_type:
                 soup = BeautifulSoup(raw_bytes, "html.parser")
                 
+                # Check JSON-LD for rich job postings
+                json_ld_text = ""
+                for s in soup.find_all("script", type="application/ld+json"):
+                    try:
+                        data = json.loads(s.string or "")
+                        if isinstance(data, dict) and data.get("@type") == "JobPosting":
+                            j_title = data.get("title", "")
+                            j_org = data.get("hiringOrganization", {}).get("name", "") if isinstance(data.get("hiringOrganization"), dict) else ""
+                            j_loc = ""
+                            if isinstance(data.get("jobLocation"), dict):
+                                addr = data.get("jobLocation", {}).get("address", {})
+                                j_loc = addr.get("addressLocality", "") if isinstance(addr, dict) else ""
+                            j_desc = BeautifulSoup(html.unescape(data.get("description", "")), "html.parser").get_text(separator="\n", strip=True)
+                            json_ld_text = f"{j_title}\nCompany: {j_org}\nLocation: {j_loc}\n\n{j_desc}"
+                            break
+                    except Exception:
+                        pass
+                
+                # Check OpenGraph / Twitter meta titles if page title is generic or Untitled
+                og_title = ""
+                og_tag = soup.find("meta", property="og:title") or soup.find("meta", attrs={"name": "twitter:title"})
+                if og_tag and og_tag.get("content"):
+                    og_title = og_tag.get("content").strip()
+
+                h1_tag = soup.find("h1")
+                h1_text = h1_tag.get_text().strip() if h1_tag else ""
+
                 # Remove script and style elements
                 for script in soup(["script", "style", "noscript", "svg", "header", "footer", "nav"]):
                     script.extract()
 
-                page_title = soup.title.string.strip() if soup.title and soup.title.string else url
+                raw_title = soup.title.string.strip() if soup.title and soup.title.string else ""
                 
+                if raw_title and raw_title.lower() not in ("untitled", "loading...", "job application", "careers"):
+                    page_title = raw_title
+                elif og_title and og_title.lower() not in ("untitled", "careers"):
+                    page_title = og_title
+                elif h1_text and len(h1_text) < 100:
+                    page_title = h1_text
+                else:
+                    page_title = raw_title or url
+
                 # Extract main readable text
                 text = soup.get_text(separator="\n", strip=True)
+                if json_ld_text:
+                    text = f"{json_ld_text}\n\n---\n{text}"
+
                 return FetchResult(content=text, title=page_title, mime_type="text/html", content_hash=content_hash)
 
             # PDF URL

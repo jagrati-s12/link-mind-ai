@@ -87,17 +87,28 @@ def heuristic_extract_opportunities(raw_text: str, source_title: str = "", sourc
     
     # If no numbered split was found, try section dividers or bullet blocks
     if not chunks:
-        potential_blocks = re.split(r'\n{2,}', raw_text)
-        current_block = []
-        for block in potential_blocks:
-            b = block.strip()
-            if any(term in b.lower() for term in ["intern", "engineer", "developer", "course", "specialization", "fellowship", "analyst", "hackathon"]) and len(current_block) > 0:
+        # Check if text is a single coherent job posting or article
+        first_lines = [l.strip() for l in raw_text.split("\n") if l.strip()][:6]
+        first_few = " ".join(first_lines).lower()
+        is_single_job = (
+            any(k in first_few for k in ["company:", "location:", "job description", "about the role", "overview", "responsibilities"])
+            or ("intern" in first_few and not any(term in raw_text.lower() for term in ["devpost", "bounties", "top 10", "top 5"]))
+        )
+
+        if is_single_job:
+            chunks = [raw_text.strip()]
+        else:
+            potential_blocks = re.split(r'\n{2,}', raw_text)
+            current_block = []
+            for block in potential_blocks:
+                b = block.strip()
+                if any(term in b.lower() for term in ["intern", "engineer", "developer", "course", "specialization", "fellowship", "analyst", "hackathon"]) and len(current_block) > 0:
+                    chunks.append("\n\n".join(current_block))
+                    current_block = [b]
+                else:
+                    current_block.append(b)
+            if current_block:
                 chunks.append("\n\n".join(current_block))
-                current_block = [b]
-            else:
-                current_block.append(b)
-        if current_block:
-            chunks.append("\n\n".join(current_block))
             
     # If still single chunk, process entire text as single opportunity
     if len(chunks) <= 1:
@@ -130,6 +141,8 @@ def heuristic_extract_opportunities(raw_text: str, source_title: str = "", sourc
             opp_type = "project"
         elif "research" in chunk_lower and "intern" not in chunk_lower:
             opp_type = "research"
+        elif "intern" in first_line.lower() or "internship" in chunk_lower or "intern" in chunk_lower:
+            opp_type = "internship"
         elif "full-time" in chunk_lower or "software engineer II" in chunk_lower or "senior" in chunk_lower:
             opp_type = "job"
         else:
@@ -187,13 +200,25 @@ def heuristic_extract_opportunities(raw_text: str, source_title: str = "", sourc
 
         # Location
         location = None
-        loc_match = re.search(r'(?:Location|Place):\s*([^\n,]+(?:,\s*[^\n,]+)?)', chunk, re.IGNORECASE)
+        loc_match = re.search(r'(?:Location|Place|Workplace|City|Office):\s*([^\n,]+(?:,\s*[^\n,]+)?)', chunk, re.IGNORECASE)
         if loc_match:
-            location = loc_match.group(1).strip()
-        elif "remote" in chunk_lower or "worldwide" in chunk_lower or "global" in chunk_lower:
-            location = "Remote / Worldwide"
-        elif "hybrid" in chunk_lower:
-            location = "Hybrid"
+            cand_loc = loc_match.group(1).strip()
+            if not any(w in cand_loc.lower() for w in ["department", "employment", "apply", "type"]):
+                location = cand_loc
+
+        if not location:
+            # Check for prominent known tech hub cities in the top portion of the chunk
+            known_locations = ["Bangalore", "Bengaluru", "San Francisco", "New York", "London", "Hyderabad", "Seattle", "Pune", "Delhi", "Gurgaon", "Mumbai", "Austin", "Singapore", "Berlin", "Toronto"]
+            for city in known_locations:
+                if re.search(rf'\b{city}\b', chunk[:400], re.IGNORECASE):
+                    location = city
+                    break
+
+        if not location:
+            if re.search(r'\b(?:100% remote|fully remote|remote work|location:\s*remote)\b', chunk_lower) or "remote" in title.lower():
+                location = "Remote / Worldwide"
+            elif "hybrid" in chunk_lower[:300]:
+                location = "Hybrid"
 
         # Compensation / Stipend / Prizes
         compensation = None

@@ -1,6 +1,10 @@
 import os
+from pathlib import Path
 from typing import List
 from pydantic_settings import BaseSettings
+
+_BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+_DEFAULT_DB_PATH = (_BACKEND_DIR / "linkmind.db").as_posix()
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "LinkMind AI"
@@ -9,8 +13,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     ALGORITHM: str = "HS256"
     
-    # Dual database support: SQLite default, PostgreSQL if specified
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./linkmind.db")
+    # Dual database support: SQLite default (anchored to backend dir), PostgreSQL if specified
+    DATABASE_URL: str = os.getenv("DATABASE_URL", f"sqlite:///{_DEFAULT_DB_PATH}")
     
     # AI configuration
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")

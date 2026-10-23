@@ -91,7 +91,9 @@ def list_resources(
         if type == "courses":
             query = query.filter(Resource.type.in_(["course", "certification"]))
         elif type == "internships":
-            query = query.filter(Resource.type.in_(["internship", "job"]))
+            query = query.filter(Resource.type == "internship")
+        elif type == "jobs":
+            query = query.filter(Resource.type == "job")
         elif type == "hackathons":
             query = query.filter(Resource.type == "hackathon")
         else:

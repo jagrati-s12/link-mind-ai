@@ -95,6 +95,7 @@ export interface Source {
 export interface DashboardStats {
   courses_saved: number;
   internships_saved: number;
+  jobs_saved: number;
   hackathons_saved: number;
   strong_matches: number;
   upcoming_deadlines: number;

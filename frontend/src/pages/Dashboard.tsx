@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import {
   BookOpen,
   Briefcase,
+  Building2,
   Trophy,
   Sparkles,
   Calendar,
@@ -127,8 +128,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCapture }) => {
       </div>
 
       {/* Real Database Count Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+        <Link to="/courses" className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-indigo-400 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Courses saved</span>
             <div className="p-1.5 bg-indigo-50 dark:bg-indigo-950/50 rounded-xl text-indigo-600 dark:text-indigo-400">
@@ -138,9 +139,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCapture }) => {
           <div className="text-xl md:text-2xl font-extrabold text-slate-900 dark:text-white mt-2.5">
             {stats?.courses_saved ?? 0}
           </div>
-        </div>
+        </Link>
 
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <Link to="/internships" className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-amber-400 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Internships saved</span>
             <div className="p-1.5 bg-amber-50 dark:bg-amber-950/50 rounded-xl text-amber-600 dark:text-amber-400">
@@ -150,9 +151,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCapture }) => {
           <div className="text-xl md:text-2xl font-extrabold text-slate-900 dark:text-white mt-2.5">
             {stats?.internships_saved ?? 0}
           </div>
-        </div>
+        </Link>
 
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <Link to="/jobs" className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-emerald-400 transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Jobs saved</span>
+            <div className="p-1.5 bg-emerald-50 dark:bg-emerald-950/50 rounded-xl text-emerald-600 dark:text-emerald-400">
+              <Building2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-xl md:text-2xl font-extrabold text-slate-900 dark:text-white mt-2.5">
+            {stats?.jobs_saved ?? 0}
+          </div>
+        </Link>
+
+        <Link to="/hackathons" className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-orange-400 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Hackathons</span>
             <div className="p-1.5 bg-orange-50 dark:bg-orange-950/50 rounded-xl text-orange-600 dark:text-orange-400">
@@ -162,12 +175,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCapture }) => {
           <div className="text-xl md:text-2xl font-extrabold text-slate-900 dark:text-white mt-2.5">
             {stats?.hackathons_saved ?? 0}
           </div>
-        </div>
+        </Link>
 
         <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Strong matches</span>
-            <div className="p-1.5 bg-emerald-50 dark:bg-emerald-950/50 rounded-xl text-emerald-600 dark:text-emerald-400">
+            <div className="p-1.5 bg-purple-50 dark:bg-purple-950/50 rounded-xl text-purple-600 dark:text-purple-400">
               <Sparkles className="w-4 h-4" />
             </div>
           </div>
@@ -176,7 +189,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCapture }) => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm col-span-2 md:col-span-1">
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Upcoming deadlines</span>
             <div className="p-1.5 bg-rose-50 dark:bg-rose-950/50 rounded-xl text-rose-600 dark:text-rose-400">

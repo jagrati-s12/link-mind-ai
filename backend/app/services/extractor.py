@@ -16,6 +16,7 @@ DEFAULT_COLLECTIONS = [
     {"name": "Web Development", "description": "Frontend, Full-stack, React, Node, Web APIs", "icon": "globe", "color": "cyan"},
     {"name": "Cloud & DevOps", "description": "AWS, Docker, Kubernetes, CI/CD, Infrastructure", "icon": "cloud", "color": "sky"},
     {"name": "Internships", "description": "All extracted internship listings and portals", "icon": "briefcase", "color": "amber"},
+    {"name": "Jobs", "description": "Full-time and engineering job positions", "icon": "building", "color": "emerald"},
     {"name": "Hackathons", "description": "Devpost, MLH, and open hackathon competitions", "icon": "trophy", "color": "orange"},
     {"name": "Courses", "description": "All saved learning courses and tutorials", "icon": "book-open", "color": "indigo"},
 ]
@@ -58,6 +59,8 @@ def match_collections_for_resource(resource_dict: Dict[str, Any], collections: L
     for col in collections:
         c_name = col.name.lower()
         if "internship" in c_name and res_type == "internship":
+            matched.append(col)
+        elif "jobs" in c_name and res_type == "job":
             matched.append(col)
         elif "hackathon" in c_name and res_type == "hackathon":
             matched.append(col)

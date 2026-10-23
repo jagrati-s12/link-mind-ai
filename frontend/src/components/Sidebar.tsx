@@ -17,7 +17,8 @@ import {
   Layers,
   Sparkles,
   Sun,
-  Moon
+  Moon,
+  Building2
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
@@ -34,6 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenCapture }) => {
     { to: '/resources', label: 'All Resources', icon: Layers },
     { to: '/courses', label: 'Courses', icon: BookOpen },
     { to: '/internships', label: 'Internships', icon: Briefcase },
+    { to: '/jobs', label: 'Jobs', icon: Building2 },
     { to: '/hackathons', label: 'Hackathons', icon: Trophy },
     { to: '/collections', label: 'Collections', icon: FolderKanban },
     { to: '/skills', label: 'Skill Map', icon: GitFork },

@@ -178,6 +178,39 @@ def test_hackathon_extraction_and_stats(client, user_token):
     stats = client.get("/api/v1/stats", headers=headers).json()
     assert stats["hackathons_saved"] >= 1
 
+def test_job_extraction_and_stats(client, user_token):
+    """Verify full-time job opportunity extraction, classification as 'job', and stats counting"""
+    job_text = """
+    Senior Full Stack Engineer
+    Company: Stripe
+    Employment Type: Full-time
+    Location: Seattle, WA
+    Salary: $185,000 - $220,000
+    Required Skills: TypeScript, React, Python, PostgreSQL, System Design
+    Apply: https://stripe.com/jobs/senior-fs-engineer
+    """
+    opps = heuristic_extract_opportunities(job_text, "Senior Full Stack Engineer @ Stripe")
+    assert len(opps) == 1
+    opp = opps[0]
+    assert opp["type"] == "job"
+    assert "Full Stack Engineer" in opp["title"]
+    assert "Seattle" in (opp["location"] or "")
+    assert "185,000" in (opp["compensation"] or "")
+
+    headers = {"Authorization": f"Bearer {user_token}"}
+    r = client.post("/api/v1/resources", json={
+        "title": "Staff Backend Engineer",
+        "organization": "Airbnb",
+        "type": "job",
+        "location": "San Francisco, CA",
+        "compensation": "$230,000/year",
+        "deadline": "Dec 31, 2026"
+    }, headers=headers)
+    assert r.status_code == 200
+
+    stats = client.get("/api/v1/stats", headers=headers).json()
+    assert stats["jobs_saved"] >= 1
+
 def test_missing_facts_not_invented():
     """Verify that if deadline or salary is omitted, it remains null/None, never invented"""
     text_without_deadline = """

@@ -432,6 +432,7 @@ class ImportJobOut(BaseModel):
 class DashboardStatsOut(BaseModel):
     courses_saved: int
     internships_saved: int
+    jobs_saved: int = 0
     hackathons_saved: int = 0
     strong_matches: int
     upcoming_deadlines: int

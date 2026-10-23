@@ -20,7 +20,13 @@ def get_dashboard_stats(
 
     internships_count = db.query(Resource).filter(
         Resource.user_id == current_user.id,
-        Resource.type.in_(["internship", "job"]),
+        Resource.type == "internship",
+        Resource.is_archived == False
+    ).count()
+
+    jobs_count = db.query(Resource).filter(
+        Resource.user_id == current_user.id,
+        Resource.type == "job",
         Resource.is_archived == False
     ).count()
 
@@ -58,6 +64,7 @@ def get_dashboard_stats(
     return DashboardStatsOut(
         courses_saved=courses_count,
         internships_saved=internships_count,
+        jobs_saved=jobs_count,
         hackathons_saved=hackathons_count,
         strong_matches=strong_matches_count,
         upcoming_deadlines=deadlines_count,

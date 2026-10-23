@@ -63,10 +63,26 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=LoginResponse)
 def login(user_in: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == user_in.email).first()
+
+    # Auto-provision demo account if it doesn't exist yet
+    if not user and user_in.email == "demo@linkmind.ai" and user_in.password == "password123":
+        user = User(
+            email="demo@linkmind.ai",
+            hashed_password=hash_password("password123"),
+            full_name="Demo User",
+            is_totp_enabled=False
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        profile = UserProfile(user_id=user.id, target_roles=["AI Engineer", "Software Engineer"])
+        db.add(profile)
+        db.commit()
+
     if not user or not verify_password(user_in.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password."
+            detail="Incorrect email or password. If you don't have an account yet, click 'Create Account' above to sign up!"
         )
 
     # If user has 2FA enabled with Google Authenticator

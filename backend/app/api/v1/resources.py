@@ -49,6 +49,20 @@ def build_resource_out(res: Resource, db: Session) -> ResourceOut:
         Application.resource_id == res.id,
         Application.user_id == res.user_id
     ).first()
+
+    # Automatically initialize application tracker for internships & jobs
+    if not app and res.type in ("internship", "job"):
+        app = Application(
+            user_id=res.user_id,
+            resource_id=res.id,
+            status="Saved",
+            deadline=res.deadline,
+            notes=res.notes or ""
+        )
+        db.add(app)
+        db.commit()
+        db.refresh(app)
+
     if app:
         out.application = ApplicationMiniOut(
             id=app.id,

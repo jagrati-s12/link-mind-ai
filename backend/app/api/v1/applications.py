@@ -14,6 +14,27 @@ def list_applications(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    # Auto-sync: Ensure every saved internship/job has a corresponding Application entry
+    untracked_internships = db.query(Resource).filter(
+        Resource.user_id == current_user.id,
+        Resource.type.in_(["internship", "job"]),
+        ~Resource.id.in_(
+            db.query(Application.resource_id).filter(Application.user_id == current_user.id)
+        )
+    ).all()
+
+    if untracked_internships:
+        for r in untracked_internships:
+            new_app = Application(
+                user_id=current_user.id,
+                resource_id=r.id,
+                status="Saved",
+                deadline=r.deadline,
+                notes=r.notes or ""
+            )
+            db.add(new_app)
+        db.commit()
+
     apps = db.query(Application).filter(
         Application.user_id == current_user.id
     ).order_by(Application.created_at.desc()).all()

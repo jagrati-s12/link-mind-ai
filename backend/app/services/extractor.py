@@ -22,6 +22,24 @@ DEFAULT_COLLECTIONS = [
     {"name": "Courses", "description": "All saved learning courses and tutorials", "icon": "book-open", "color": "indigo"},
 ]
 
+SECTION_ICONS = {
+    "systems": ("server", "cyan"),
+    "programming languages": ("terminal", "emerald"),
+    "compiler": ("terminal", "emerald"),
+    "algorithms": ("code", "blue"),
+    "theory": ("brain", "indigo"),
+    "introduction": ("book-open", "teal"),
+    "machine learning": ("sparkles", "purple"),
+    "artificial intelligence": ("bot", "violet"),
+    "security": ("shield", "rose"),
+    "graphics": ("palette", "amber"),
+    "databases": ("database", "emerald"),
+    "statistics": ("trending-up", "sky"),
+    "network": ("globe", "blue"),
+    "operating systems": ("cpu", "amber"),
+    "web": ("globe", "cyan"),
+}
+
 def ensure_default_collections(db: Session, user_id: int) -> List[Collection]:
     existing = db.query(Collection).filter(Collection.user_id == user_id).all()
     existing_names = {c.name for c in existing}
@@ -161,7 +179,7 @@ async def process_source(db: Session, source_id: int) -> Source:
     user_skills = db.query(UserSkill).filter(UserSkill.user_id == source.user_id).all()
 
     # Step 5: Persist each extracted opportunity as an individual canonical Resource
-    for opp_data in raw_opps:
+    for idx, opp_data in enumerate(raw_opps):
         # Check if already saved under same direct URL for this user
         existing_res = None
         if opp_data.get("direct_url"):
@@ -201,8 +219,33 @@ async def process_source(db: Session, source_id: int) -> Source:
             db.add(res)
             db.flush()
 
-        # Connect to collections
+        # Connect to collections (including section folders like Systems, Machine Learning, Algorithms)
+        sec_name = (opp_data.get("section") or opp_data.get("suggested_collection") or "").strip()
+        sec_col = None
+        if sec_name and len(sec_name) < 60:
+            sec_col = next((c for c in user_collections if c.name.lower() == sec_name.lower()), None)
+            if not sec_col:
+                icon, color = "folder", "indigo"
+                for kw, (ic, cl) in SECTION_ICONS.items():
+                    if kw in sec_name.lower():
+                        icon, color = ic, cl
+                        break
+                sec_col = Collection(
+                    user_id=source.user_id,
+                    name=sec_name,
+                    description=f"Curated courses and resources for {sec_name}",
+                    icon=icon,
+                    color=color,
+                    is_system=False
+                )
+                db.add(sec_col)
+                db.flush()
+                user_collections.append(sec_col)
+
         matched_cols = match_collections_for_resource(opp_data, user_collections)
+        if sec_col and sec_col not in matched_cols:
+            matched_cols.insert(0, sec_col)
+
         for col in matched_cols:
             if col not in res.collections:
                 res.collections.append(col)
@@ -245,7 +288,8 @@ async def process_source(db: Session, source_id: int) -> Source:
                 db.add(new_app)
 
         # Auto-create CourseProgress record for courses & certifications in "In Progress" status
-        if res.type in ("course", "certification"):
+        # (For huge catalog imports, auto-track first 5 so Course Tracker remains clean and fast)
+        if res.type in ("course", "certification") and (len(raw_opps) <= 25 or idx < 5):
             existing_cp = db.query(CourseProgress).filter(
                 CourseProgress.user_id == source.user_id,
                 CourseProgress.resource_id == res.id
@@ -262,13 +306,16 @@ async def process_source(db: Session, source_id: int) -> Source:
                 )
                 db.add(new_cp)
 
-        db.commit()
+        # Discover relationships (run for individual or first 10 of catalog imports)
+        if len(raw_opps) <= 20 or idx < 10:
+            try:
+                auto_connect_resources(db, source.user_id, res.id)
+            except Exception:
+                logger.warning("Auto connect resources failed for %d", res.id)
 
-        # Discover relationships
-        try:
-            auto_connect_resources(db, source.user_id, res.id)
-        except Exception:
-            logger.warning("Auto connect resources failed for %d", res.id)
+        # Periodic commit every 25 items for speed
+        if idx % 25 == 0:
+            db.commit()
 
     source.extraction_status = "completed"
     db.commit()

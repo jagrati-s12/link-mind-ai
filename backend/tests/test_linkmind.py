@@ -558,4 +558,86 @@ def test_model_continuous_learning_and_feedback(client, user_token, db_session):
     assert "Correct type is 'job'" in few_shot
     assert "jobs.cisco.com" in few_shot
 
+def test_curated_course_catalog_and_section_folders_extraction(client, user_token, db_session):
+    """Verify that curated course catalogs (like awesome-courses) split into distinct courses with folder collections"""
+    from app.services.ai_adapter import extract_markdown_curated_courses
+    from app.services.extractor import process_source
+    from app.models import Source, Resource, Collection
+
+    sample_awesome_courses = """
+# Awesome CS Courses
+
+Introduction
+------------
+Curated list of university courses.
+
+Courses
+-------
+
+### Systems
+
+- [CS 61C](http://www-inst.eecs.berkeley.edu/~cs61c/sp15/) **Great Ideas in Computer Architecture (Machine Structures)** *UC Berkeley* <img src="videos.png" alt="Lecture Videos" />
+    - The subjects covered in this course include: C and assembly language programming, translation of high-level programs into machine language.
+    - [Lecture Videos](http://archive.org/cs61c)
+    - [Assignments](http://cs61c/hw)
+
+- [CS 140](http://www.scs.stanford.edu/14wi-cs140/) **Operating Systems** *Stanford University*
+    - Introduces basic facilities provided in modern operating systems: concurrency, virtual memory, file systems.
+
+### Machine Learning
+
+- [CS 229](http://cs229.stanford.edu/) **Machine Learning** *Stanford University*
+    - Comprehensive introduction to machine learning, supervised learning, and neural networks.
+    """
+
+    courses = extract_markdown_curated_courses(sample_awesome_courses, "prakhar1989/awesome-courses", "https://github.com/prakhar1989/awesome-courses")
+    assert len(courses) == 3
+
+    # Check Course 1
+    c1 = courses[0]
+    assert c1["type"] == "course"
+    assert "CS 61C" in c1["title"]
+    assert "Computer Architecture" in c1["title"]
+    assert c1["organization"] == "UC Berkeley"
+    assert c1["section"] == "Systems"
+    assert c1["direct_url"] == "http://www-inst.eecs.berkeley.edu/~cs61c/sp15/"
+
+    # Check Course 3
+    c3 = courses[2]
+    assert "CS 229" in c3["title"]
+    assert c3["section"] == "Machine Learning"
+    assert c3["organization"] == "Stanford University"
+
+    # Test full end-to-end ingestion and folder creation
+    source = Source(
+        user_id=1,
+        source_type="text",
+        original_url=None,
+        title="Awesome CS Courses",
+        raw_content=sample_awesome_courses
+    )
+    db_session.add(source)
+    db_session.commit()
+    db_session.refresh(source)
+
+    # Ingest
+    import asyncio
+    asyncio.run(process_source(db_session, source.id))
+
+    # Verify courses were persisted as distinct items
+    saved_c1 = db_session.query(Resource).filter(Resource.direct_url == c1["direct_url"]).first()
+    assert saved_c1 is not None
+    assert saved_c1.type == "course"
+
+    # Verify section collections (folders) exist and were attached
+    c1_collections = [col.name for col in saved_c1.collections]
+    assert "Systems" in c1_collections
+    assert "Courses" in c1_collections
+
+    saved_c3 = db_session.query(Resource).filter(Resource.direct_url == c3["direct_url"]).first()
+    c3_collections = [col.name for col in saved_c3.collections]
+    assert "Machine Learning" in c3_collections
+    assert "Courses" in c3_collections
+
+
 

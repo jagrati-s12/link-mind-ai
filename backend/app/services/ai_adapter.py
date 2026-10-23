@@ -55,6 +55,11 @@ def heuristic_extract_opportunities(raw_text: str, source_title: str = "", sourc
     (such as a LinkedIn list of 10 internships, or a list of courses/hackathons)
     into distinct, validated opportunities. Handles fancy Unicode styling and social boilerplate.
     """
+    # 0. Check if content is a curated course catalog / awesome list
+    curated_courses = extract_markdown_curated_courses(raw_text, source_title, source_url)
+    if len(curated_courses) >= 2:
+        return curated_courses
+
     opportunities = []
     
     # 1. Normalize fancy Unicode (like LinkedIn Mathematical Bold '𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿 𝗛𝗮𝗰𝗸𝗮𝘁𝗵𝗼𝗻' -> 'Developer Hackathon')
@@ -403,6 +408,112 @@ async def call_llm_json(prompt: str, system_prompt: str) -> Optional[Any]:
 
     return None
 
+def extract_markdown_curated_courses(raw_text: str, source_title: str = "", source_url: str = "") -> List[Dict[str, Any]]:
+    """
+    Intelligently parses curated university/tech course catalogs and awesome lists
+    (e.g. prakhar1989/awesome-courses, ossu/computer-science, developer roadmaps)
+    into individual categorized course resources. Preserves section category folders
+    (e.g. 'Systems', 'Machine Learning', 'Algorithms') for automatic folder filing.
+    """
+    sections = re.split(r'(?m)^#{2,4}\s+([^\n]+)', raw_text)
+    if len(sections) <= 2:
+        return []
+
+    courses = []
+    seen_urls = set()
+
+    for i in range(1, len(sections), 2):
+        sec_title = sections[i].strip()
+        sec_title_clean = re.sub(r'\[.*?\]\(.*?\)|<.*?>|[#*`]', '', sec_title).strip()
+
+        # Skip non-course meta sections
+        if sec_title_clean.lower() in (
+            'introduction', 'table of contents', 'contents', 'legend',
+            'license', 'contributing', 'how to use', 'authors', 'faq',
+            'prerequisites', 'overview'
+        ):
+            continue
+
+        sec_body = sections[i + 1]
+
+        # Match markdown course items: '- [Code or Title](url) rest of line'
+        items = re.findall(
+            r'(?m)^[-*]\s+\[([^\]]+)\]\(([^)]+)\)\s*(.*?)(?=\n[-*]\s+\[|\n#{2,4}\s+|\Z)',
+            sec_body,
+            re.S
+        )
+
+        for code_or_label, url, rest in items:
+            url_clean = url.strip()
+            if not url_clean or url_clean.startswith('#'):
+                continue
+            if url_clean in seen_urls:
+                continue
+
+            seen_urls.add(url_clean)
+
+            label = code_or_label.strip()
+            title = label
+            org = None
+
+            # Look for bold course name: **Course Title**
+            bold_match = re.search(r'\*\*([^*]+)\*\*', rest)
+            if bold_match:
+                bold_title = bold_match.group(1).strip()
+                if label.lower() not in bold_title.lower() and len(label) <= 15:
+                    title = f"{label}: {bold_title}"
+                else:
+                    title = bold_title
+
+            # Look for italicized university/institution: *UC Berkeley*, *Stanford*, *MIT*
+            italic_match = re.search(r'(?<!\*)\*([^*]+)\*(?!\*)', rest)
+            if italic_match:
+                cand_org = italic_match.group(1).strip()
+                if len(cand_org) < 60 and not any(kw in cand_org.lower() for kw in ['video', 'note', 'assignment', 'http', 'lecture']):
+                    org = cand_org
+
+            # If org still None, check if University/College mentioned in line
+            if not org:
+                univ_match = re.search(r'\b([A-Z][A-Za-z\s]+(?:University|College|Institute|MIT|Caltech|Stanford|Berkeley|Harvard|Oxford|Cambridge))\b', rest)
+                if univ_match:
+                    org = univ_match.group(1).strip()
+
+            # Clean description bullets
+            desc_lines = []
+            for line in rest.split('\n'):
+                l = line.strip()
+                if not l or '<img' in l:
+                    continue
+                if re.search(r'lecture (?:videos|notes)|assignments|readings|exams|syllabus|<img', l, re.I):
+                    continue
+                cleaned = re.sub(r'^[-*o•\s]+', '', l).strip()
+                cleaned = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', cleaned) # unwrap markdown links
+                if cleaned and not cleaned.startswith('**') and not (cleaned.startswith('*') and cleaned.endswith('*')):
+                    desc_lines.append(cleaned)
+
+            desc = ' '.join(desc_lines[:3]).strip()
+            if not desc:
+                desc = f"{title} comprehensive university curriculum and course materials."
+
+            taught_skills = extract_skills_from_text(f"{title} {desc} {sec_title_clean}")
+
+            courses.append({
+                "type": "course",
+                "title": title,
+                "organization": org or "University",
+                "direct_url": url_clean,
+                "description": desc,
+                "section": sec_title_clean,
+                "suggested_collection": sec_title_clean,
+                "taught_skills": taught_skills,
+                "required_skills": [],
+                "confidence": 1.0,
+                "verification_status": "verified",
+                "notes": f"Imported from {source_title or 'curated list'}"
+            })
+
+    return courses
+
 async def extract_structured_opportunities(
     raw_text: str,
     source_title: str = "",
@@ -411,10 +522,14 @@ async def extract_structured_opportunities(
 ) -> List[Dict[str, Any]]:
     """
     Extracts structured opportunities from content.
-    Prioritizes configured LLM with dynamic few-shot continuous learning;
-    gracefully falls back to deterministic heuristic parser.
+    Prioritizes curated catalogs (awesome-courses, repo lists) and configured LLMs
+    with dynamic few-shot continuous learning; gracefully falls back to deterministic heuristic parser.
     Ensures zero hallucination and strict schema compliance.
     """
+    # 1. Check if source is a structured curated markdown list (e.g. awesome-courses)
+    curated_courses = extract_markdown_curated_courses(raw_text, source_title, source_url)
+    if len(curated_courses) >= 2:
+        return curated_courses
     system_prompt = (
         "You are LinkMind AI's extraction engine. Extract individual learning, internship, and career opportunities "
         "from the text. If a post contains multiple opportunities (e.g., 5 internships), extract each as a separate item.\n"

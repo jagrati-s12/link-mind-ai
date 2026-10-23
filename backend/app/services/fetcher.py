@@ -127,6 +127,43 @@ async def try_fetch_job_board_api(url: str, client: httpx.AsyncClient) -> Option
 
     return None
 
+async def try_fetch_github_raw_readme(url: str, client: httpx.AsyncClient) -> Optional[FetchResult]:
+    """
+    Directly extracts pristine raw markdown README from GitHub repository URLs
+    (e.g. github.com/prakhar1989/awesome-courses) to bypass GitHub HTML UI chrome
+    and deliver pristine course lists.
+    """
+    gh_match = re.search(r'github\.com/([^/]+)/([^/?#]+)', url, re.I)
+    if not gh_match:
+        return None
+    owner, repo = gh_match.group(1), gh_match.group(2)
+    if owner.lower() in ("features", "topics", "trending", "collections", "organizations", "login", "signup", "settings"):
+        return None
+
+    # Try raw HEAD README.md, then main, then master
+    for branch in ("HEAD", "main", "master"):
+        raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/README.md"
+        try:
+            resp = await client.get(raw_url)
+            if resp.status_code == 200 and len(resp.text) > 100:
+                raw_text = resp.text
+                title = f"{owner}/{repo}"
+                h_match = re.search(r'^#+\s+([^\n]+)', raw_text, re.M)
+                if h_match:
+                    clean_h = re.sub(r'\[.*?\]\(.*?\)|<.*?>|[#*`]', '', h_match.group(1)).strip()
+                    if clean_h:
+                        title = f"{clean_h} ({owner}/{repo})"
+                c_hash = hashlib.sha256(raw_text.encode("utf-8")).hexdigest()
+                return FetchResult(
+                    content=raw_text,
+                    title=title,
+                    mime_type="text/markdown",
+                    content_hash=c_hash
+                )
+        except Exception:
+            continue
+    return None
+
 async def fetch_url_content(url: str) -> FetchResult:
     """
     Safely fetches content from a public URL with SSRF protection,
@@ -148,6 +185,12 @@ async def fetch_url_content(url: str) -> FetchResult:
             timeout=settings.REQUEST_TIMEOUT_SECONDS,
             max_redirects=5
         ) as client:
+            # Check if URL is a GitHub repo to fetch clean README markdown
+            if "github.com" in url.lower():
+                gh_raw = await try_fetch_github_raw_readme(url, client)
+                if gh_raw:
+                    return gh_raw
+
             # Check if URL matches known job board SPA APIs (HackerRank, Greenhouse, Lever)
             job_board_res = await try_fetch_job_board_api(url, client)
             if job_board_res:
@@ -224,8 +267,13 @@ async def fetch_url_content(url: str) -> FetchResult:
                 else:
                     page_title = raw_title or url
 
-                # Extract main readable text
-                text = soup.get_text(separator="\n", strip=True)
+                # Extract main readable text (prioritize markdown-body for GitHub repos)
+                md_body = soup.find("article", class_=re.compile(r"markdown-body"))
+                if md_body:
+                    text = md_body.get_text(separator="\n", strip=True)
+                else:
+                    text = soup.get_text(separator="\n", strip=True)
+
                 if json_ld_text:
                     text = f"{json_ld_text}\n\n---\n{text}"
 

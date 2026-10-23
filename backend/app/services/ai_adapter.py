@@ -60,59 +60,74 @@ def heuristic_extract_opportunities(raw_text: str, source_title: str = "", sourc
     # 1. Normalize fancy Unicode (like LinkedIn Mathematical Bold '𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿 𝗛𝗮𝗰𝗸𝗮𝘁𝗵𝗼𝗻' -> 'Developer Hackathon')
     raw_text = unicodedata.normalize('NFKD', raw_text)
 
-    # 2. Strip social engagement boilerplate (comments, like/share buttons, footer metrics)
-    for stop_marker in ["View C2PA information", "Like\nComment\nShare", "Comments\nLike", "\nReactions\n"]:
-        if stop_marker in raw_text:
-            raw_text = raw_text.split(stop_marker)[0]
+    # 2. Strip social engagement boilerplate (comments, like/share buttons, footer metrics, reviews)
+    for stop_marker in [
+        "View C2PA information", "Like\nComment\nShare", "Comments\nLike", "\nReactions\n",
+        "\nLearner Reviews", "\nReviews\n", "\nFrequently Asked Questions", "\nFAQs\n",
+        "\nExplore more resources", "\nWhat learners say"
+    ]:
+        if stop_marker.lower() in raw_text.lower():
+            idx = raw_text.lower().find(stop_marker.lower())
+            raw_text = raw_text[:idx]
 
-    # Try splitting by numbered items e.g., "1.", "2.", "Opportunity 1:", "[1]", "Role 1"
-    split_pattern = r'(?m)(?:^\s*(?:\d+[\.\)]|#\d+|Opportunity \d+|Role \d+|Job \d+|Internship \d+|Hackathon \d+)[\s\t]*\n?|[ \t]*\n\s*---\s*\n)'
-    parts = re.split(split_pattern, raw_text)
-    
-    chunks = []
-    if len(parts) > 1:
-        first_clean = parts[0].strip()
-        is_preamble = (
-            any(marker in first_clean.lower() for marker in [
-                "agree & join", "skip to main content", "report this post", "sign in", "here are",
-                "looking for your next", "top ", "list of", "ongoing major hackathons"
-            ])
-            or (len(first_clean) < 120 and first_clean.endswith(":"))
-            or (len(first_clean) < 400 and "http" not in first_clean and "apply" not in first_clean.lower() and "skills" not in first_clean.lower())
-        )
-        if is_preamble:
-            chunks = [p.strip() for p in parts[1:] if len(p.strip()) > 20]
-        else:
-            chunks = [p.strip() for p in parts if len(p.strip()) > 20]
-    
-    # If no numbered split was found, try section dividers or bullet blocks
-    if not chunks:
-        # Check if text is a single coherent job posting or article
-        first_lines = [l.strip() for l in raw_text.split("\n") if l.strip()][:6]
-        first_few = " ".join(first_lines).lower()
-        is_single_job = (
-            any(k in first_few for k in ["company:", "location:", "job description", "about the role", "overview", "responsibilities"])
-            or ("intern" in first_few and not any(term in raw_text.lower() for term in ["devpost", "bounties", "top 10", "top 5"]))
-        )
+    is_course_site = any(d in source_url.lower() for d in [
+        "coursera.org", "edx.org", "udemy.com", "udacity.com", "datacamp.com", "pluralsight.com"
+    ])
+    is_job_site = any(d in source_url.lower() for d in [
+        "hackerrank.com", "greenhouse.io", "lever.co", "ashbyhq.com", "smartrecruiters.com"
+    ])
 
-        if is_single_job:
-            chunks = [raw_text.strip()]
-        else:
-            potential_blocks = re.split(r'\n{2,}', raw_text)
-            current_block = []
-            for block in potential_blocks:
-                b = block.strip()
-                if any(term in b.lower() for term in ["intern", "engineer", "developer", "course", "specialization", "fellowship", "analyst", "hackathon"]) and len(current_block) > 0:
-                    chunks.append("\n\n".join(current_block))
-                    current_block = [b]
-                else:
-                    current_block.append(b)
-            if current_block:
-                chunks.append("\n\n".join(current_block))
-            
-    # If still single chunk, process entire text as single opportunity
-    if len(chunks) <= 1:
+    if is_course_site or is_job_site:
         chunks = [raw_text.strip()]
+    else:
+        # Try splitting by numbered items e.g., "1.", "2.", "Opportunity 1:", "[1]", "Role 1"
+        split_pattern = r'(?m)(?:^\s*(?:\d+[\.\)]|#\d+|Opportunity \d+|Role \d+|Job \d+|Internship \d+|Hackathon \d+)[\s\t]*\n?|[ \t]*\n\s*---\s*\n)'
+        parts = re.split(split_pattern, raw_text)
+        
+        chunks = []
+        if len(parts) > 1:
+            first_clean = parts[0].strip()
+            is_preamble = (
+                any(marker in first_clean.lower() for marker in [
+                    "agree & join", "skip to main content", "report this post", "sign in", "here are",
+                    "looking for your next", "top ", "list of", "ongoing major hackathons"
+                ])
+                or (len(first_clean) < 120 and first_clean.endswith(":"))
+                or (len(first_clean) < 400 and "http" not in first_clean and "apply" not in first_clean.lower() and "skills" not in first_clean.lower())
+            )
+            if is_preamble:
+                chunks = [p.strip() for p in parts[1:] if len(p.strip()) > 20]
+            else:
+                chunks = [p.strip() for p in parts if len(p.strip()) > 20]
+        
+        # If no numbered split was found, try section dividers or bullet blocks
+        if not chunks:
+            # Check if text is a single coherent job posting or article
+            first_lines = [l.strip() for l in raw_text.split("\n") if l.strip()][:6]
+            first_few = " ".join(first_lines).lower()
+            is_single_job = (
+                any(k in first_few for k in ["company:", "location:", "job description", "about the role", "overview", "responsibilities"])
+                or ("intern" in first_few and not any(term in raw_text.lower() for term in ["devpost", "bounties", "top 10", "top 5"]))
+            )
+
+            if is_single_job:
+                chunks = [raw_text.strip()]
+            else:
+                potential_blocks = re.split(r'\n{2,}', raw_text)
+                current_block = []
+                for block in potential_blocks:
+                    b = block.strip()
+                    if any(term in b.lower() for term in ["intern", "engineer", "developer", "course", "specialization", "fellowship", "analyst", "hackathon"]) and len(current_block) > 0:
+                        chunks.append("\n\n".join(current_block))
+                        current_block = [b]
+                    else:
+                        current_block.append(b)
+                if current_block:
+                    chunks.append("\n\n".join(current_block))
+                
+        # If still single chunk, process entire text as single opportunity
+        if len(chunks) <= 1:
+            chunks = [raw_text.strip()]
 
     source_hints = (source_title + " " + source_url).lower()
 
@@ -179,6 +194,43 @@ def heuristic_extract_opportunities(raw_text: str, source_title: str = "", sourc
             if " at " in source_title:
                 organization = source_title.split(" at ")[-1].strip()
 
+        # If source is from a known dedicated course platform, prefer cleaned source title
+        if is_course_site and source_title:
+            cleaned_st = re.sub(r'\s*\|\s*(?:Coursera|edX|Udemy|DataCamp|Pluralsight).*$', '', source_title, flags=re.I).strip()
+            if len(cleaned_st) > 4:
+                title = cleaned_st
+            
+            t_lower = (title + " " + chunk[:500]).lower()
+            if "google" in t_lower:
+                organization = "Google"
+            elif "meta" in t_lower:
+                organization = "Meta"
+            elif "ibm" in t_lower:
+                organization = "IBM"
+            elif "aws" in t_lower or "amazon" in t_lower:
+                organization = "AWS"
+            elif "microsoft" in t_lower:
+                organization = "Microsoft"
+            else:
+                for prov in ["Coursera", "edX", "Udemy", "DataCamp", "Pluralsight"]:
+                    if prov.lower() in source_url.lower():
+                        organization = prov
+                        break
+
+        # Validate title: Reject invalid numbers, ratings like "0", "8", "62%", or "Reviewed on..."
+        clean_title_no_num = re.sub(r'[\d\.\,%kK\$₹#\-+()\s]', '', title)
+        if (
+            not clean_title_no_num
+            or len(title.strip()) < 4
+            or title.lower().startswith("reviewed on")
+            or title.lower() in ("untitled", "loading...", "learn more")
+        ):
+            if is_course_site and source_title:
+                title = re.sub(r'\s*\|\s*(?:Coursera|edX|Udemy|DataCamp|Pluralsight).*$', '', source_title, flags=re.I).strip()
+            else:
+                # Discard invalid junk chunk from review ratings or buttons
+                continue
+
         # Find direct application link in chunk
         direct_url = None
         url_matches = re.findall(r'https?://[^\s<>"\'{}|\\^`]+', chunk)
@@ -189,6 +241,8 @@ def heuristic_extract_opportunities(raw_text: str, source_title: str = "", sourc
                 break
         if not direct_url and url_matches and url_matches[0] != source_url:
             direct_url = url_matches[0].rstrip(".,;)")
+        if not direct_url and (is_course_site or is_job_site) and source_url:
+            direct_url = source_url
 
         # Extract deadline
         deadline = None

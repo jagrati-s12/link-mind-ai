@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  linkmind-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://linkmind:linkmindpass@postgres:5432/linkmind_db
+      - SECRET_KEY=linkmind-production-secret-key-replace-in-env
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    depends_on:
+      - postgres
+    volumes:
+      - linkmind_uploads:/app/data/uploads
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: linkmind
+      POSTGRES_PASSWORD: linkmindpass
+      POSTGRES_DB: linkmind_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+  linkmind_uploads:

@@ -21,14 +21,21 @@ import { Applications } from './pages/Applications';
 import { Assistant } from './pages/Assistant';
 import { Profile } from './pages/Profile';
 import { Settings } from './pages/Settings';
+import { Login } from './pages/Login';
 
 export const App: React.FC = () => {
   const [isCaptureOpen, setIsCaptureOpen] = useState(false);
+  const location = useLocation();
   const queryClient = useQueryClient();
 
   const handleCaptureSuccess = () => {
     queryClient.invalidateQueries();
   };
+
+  // Dedicated full-screen route for Authentication
+  if (location.pathname === '/login') {
+    return <Login />;
+  }
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans overflow-hidden">
@@ -42,6 +49,7 @@ export const App: React.FC = () => {
         <main className="flex-1 overflow-y-auto px-6 py-8 custom-scrollbar">
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/dashboard" element={<Dashboard onOpenCapture={() => setIsCaptureOpen(true)} />} />
             <Route path="/inbox" element={<Inbox onOpenCapture={() => setIsCaptureOpen(true)} />} />
             <Route path="/resources" element={<Resources onOpenCapture={() => setIsCaptureOpen(true)} />} />

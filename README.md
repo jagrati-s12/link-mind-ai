@@ -116,12 +116,19 @@ $$\mathcal{S} = 0.35K + 0.25P + 0.20G + 0.10L + 0.10C$$
 - Track opportunities across stages: `Saved`, `Shortlisted`, `Preparing`, `Applied`, `Assessment`, `Interview`, `Offer`, `Rejected`.
 - Visibility into deadlines and notes.
 
+### 9. 🔐 Login & Google Authenticator (TOTP 2FA)
+- Dedicated modern sign-in / registration portal with 1-click Demo Workspace access.
+- Time-based One-Time Password (TOTP) two-factor authentication compatible with **Google Authenticator** on Android & iOS.
+- In-app QR code generation, manual secret backup keys, and immediate verification challenge upon login.
+- Security management directly available in **Settings** and **Profile**.
+
 ---
 
 ## 🗂️ Application Routes
 
 | Route | View | Description |
 |---|---|---|
+| `/login` | **Authentication Portal** | Secure login, registration, and Google Authenticator 2FA challenge screen |
 | `/dashboard` | **Workspace Overview** | Real library metrics, Quick Capture bar, subject folders, and top matches |
 | `/inbox` | **Universal Inbox** | Ingest links and documents; inspect provenance and parsing logs |
 | `/resources` | **All Resources** | Filterable, searchable opportunity catalog |

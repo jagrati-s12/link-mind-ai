@@ -25,6 +25,9 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(255), default="")
     is_active = Column(Boolean, default=True)
+    totp_secret = Column(String(64), nullable=True)
+    is_totp_enabled = Column(Boolean, default=False)
+    totp_temp_secret = Column(String(64), nullable=True)
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 

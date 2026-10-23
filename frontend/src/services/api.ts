@@ -197,5 +197,45 @@ export const api = {
   exportData: () => fetchJson<any>(`${API_BASE}/settings/export`),
   deleteAccount: () => fetchJson<any>(`${API_BASE}/settings/account`, {
     method: 'DELETE'
-  })
+  }),
+
+  // Auth & Google Authenticator (2FA)
+  register: (email: string, password: string, full_name?: string) =>
+    fetchJson<import('../types').LoginResponse>(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      body: JSON.stringify({ email, password, full_name })
+    }),
+
+  login: (email: string, password: string, code?: string) =>
+    fetchJson<import('../types').LoginResponse>(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      body: JSON.stringify({ email, password, code })
+    }),
+
+  verify2FALogin: (temp_token: string, code: string) =>
+    fetchJson<import('../types').LoginResponse>(`${API_BASE}/auth/2fa/verify-login`, {
+      method: 'POST',
+      body: JSON.stringify({ temp_token, code })
+    }),
+
+  get2FASetup: () =>
+    fetchJson<import('../types').TOTPSetupResponse>(`${API_BASE}/auth/2fa/setup`),
+
+  enable2FA: (code: string) =>
+    fetchJson<{ success: boolean; message: string }>(`${API_BASE}/auth/2fa/enable`, {
+      method: 'POST',
+      body: JSON.stringify({ code })
+    }),
+
+  disable2FA: (code: string) =>
+    fetchJson<{ success: boolean; message: string }>(`${API_BASE}/auth/2fa/disable`, {
+      method: 'POST',
+      body: JSON.stringify({ code })
+    }),
+
+  get2FAStatus: () =>
+    fetchJson<import('../types').TOTPStatusResponse>(`${API_BASE}/auth/2fa/status`),
+
+  getMe: () =>
+    fetchJson<import('../types').User>(`${API_BASE}/auth/me`)
 };

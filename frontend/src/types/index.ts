@@ -202,3 +202,35 @@ export interface Application {
   updated_at: string;
   resource?: Resource | null;
 }
+
+export interface User {
+  id: number;
+  email: string;
+  full_name: string;
+  is_active: boolean;
+  is_totp_enabled: boolean;
+  created_at: string;
+  profile?: UserProfile;
+}
+
+export interface LoginResponse {
+  access_token?: string;
+  token_type?: string;
+  user_id?: number;
+  email?: string;
+  full_name?: string;
+  requires_2fa: boolean;
+  temp_token?: string;
+  is_totp_enabled: boolean;
+}
+
+export interface TOTPSetupResponse {
+  secret: string;
+  otpauth_url: string;
+  qr_code: string;
+}
+
+export interface TOTPStatusResponse {
+  is_totp_enabled: boolean;
+  email: string;
+}

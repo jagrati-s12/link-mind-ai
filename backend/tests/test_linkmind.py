@@ -307,3 +307,116 @@ def test_user_data_isolation(client, db_session, test_user, user_token):
     # User B tries to delete User A's resource -> 404
     del_resp = client.delete(f"/api/v1/resources/{res_a_id}", headers=headers_user_b)
     assert del_resp.status_code == 404
+
+def test_auth_registration_and_login(client):
+    """Test user registration and subsequent login"""
+    reg_resp = client.post("/api/v1/auth/register", json={
+        "email": "newuser@example.com",
+        "password": "securepassword123",
+        "full_name": "New User"
+    })
+    assert reg_resp.status_code == 200
+    reg_data = reg_resp.json()
+    assert reg_data["access_token"] is not None
+    assert reg_data["email"] == "newuser@example.com"
+    assert reg_data["is_totp_enabled"] is False
+
+    # Login
+    login_resp = client.post("/api/v1/auth/login", json={
+        "email": "newuser@example.com",
+        "password": "securepassword123"
+    })
+    assert login_resp.status_code == 200
+    assert login_resp.json()["access_token"] is not None
+    assert login_resp.json()["requires_2fa"] is False
+
+def test_google_authenticator_totp_flow(client, db_session):
+    """Test full Google Authenticator 2FA setup, verification, and 2FA login challenge"""
+    import pyotp
+    
+    # 1. Register a new user
+    reg = client.post("/api/v1/auth/register", json={
+        "email": "totp_user@example.com",
+        "password": "Password123!",
+        "full_name": "TOTP Student"
+    }).json()
+    token = reg["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Check 2FA status (initially False)
+    status_resp = client.get("/api/v1/auth/2fa/status", headers=headers).json()
+    assert status_resp["is_totp_enabled"] is False
+
+    # 3. Request 2FA Setup (generates QR code and secret)
+    setup_resp = client.get("/api/v1/auth/2fa/setup", headers=headers)
+    assert setup_resp.status_code == 200
+    setup_data = setup_resp.json()
+    assert "secret" in setup_data
+    assert "qr_code" in setup_data
+    assert setup_data["qr_code"].startswith("data:image/png;base64,")
+    assert "LinkMind%20AI" in setup_data["otpauth_url"]
+    secret = setup_data["secret"]
+
+    # 4. Try enabling with an invalid code -> should fail with 400
+    bad_verify = client.post("/api/v1/auth/2fa/enable", json={"code": "000000"}, headers=headers)
+    assert bad_verify.status_code == 400
+
+    # 5. Generate valid code with pyotp and enable 2FA
+    totp = pyotp.TOTP(secret)
+    valid_code = totp.now()
+    enable_resp = client.post("/api/v1/auth/2fa/enable", json={"code": valid_code}, headers=headers)
+    assert enable_resp.status_code == 200
+    assert enable_resp.json()["success"] is True
+
+    # 6. Verify 2FA status is now True
+    status_resp2 = client.get("/api/v1/auth/2fa/status", headers=headers).json()
+    assert status_resp2["is_totp_enabled"] is True
+
+    # 7. Try regular login without code -> should return requires_2fa=True & temp_token
+    login_challenge = client.post("/api/v1/auth/login", json={
+        "email": "totp_user@example.com",
+        "password": "Password123!"
+    })
+    assert login_challenge.status_code == 200
+    challenge_data = login_challenge.json()
+    assert challenge_data["requires_2fa"] is True
+    assert challenge_data["temp_token"] is not None
+    assert challenge_data["access_token"] is None
+    temp_token = challenge_data["temp_token"]
+
+    # 8. Complete 2FA login via /2fa/verify-login with invalid code -> 401
+    bad_login_2fa = client.post("/api/v1/auth/2fa/verify-login", json={
+        "temp_token": temp_token,
+        "code": "999999"
+    })
+    assert bad_login_2fa.status_code == 401
+
+    # 9. Complete 2FA login via /2fa/verify-login with valid code -> 200 with access token
+    good_code = totp.now()
+    good_login_2fa = client.post("/api/v1/auth/2fa/verify-login", json={
+        "temp_token": temp_token,
+        "code": good_code
+    })
+    assert good_login_2fa.status_code == 200
+    assert good_login_2fa.json()["access_token"] is not None
+
+    # 10. Direct login with email + password + code all in one call
+    direct_code = totp.now()
+    direct_resp = client.post("/api/v1/auth/login", json={
+        "email": "totp_user@example.com",
+        "password": "Password123!",
+        "code": direct_code
+    })
+    assert direct_resp.status_code == 200
+    assert direct_resp.json()["access_token"] is not None
+    assert direct_resp.json()["requires_2fa"] is False
+
+    # 11. Disable 2FA with current valid code
+    disable_code = totp.now()
+    disable_resp = client.post("/api/v1/auth/2fa/disable", json={"code": disable_code}, headers=headers)
+    assert disable_resp.status_code == 200
+    assert disable_resp.json()["success"] is True
+
+    # Check status is disabled
+    status_resp3 = client.get("/api/v1/auth/2fa/status", headers=headers).json()
+    assert status_resp3["is_totp_enabled"] is False

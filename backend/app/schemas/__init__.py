@@ -11,6 +11,7 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+    code: Optional[str] = None  # Optional Google Authenticator 6-digit code
 
 class Token(BaseModel):
     access_token: str
@@ -18,6 +19,33 @@ class Token(BaseModel):
     user_id: int
     email: str
     full_name: str
+    is_totp_enabled: bool = False
+
+class LoginResponse(BaseModel):
+    access_token: Optional[str] = None
+    token_type: Optional[str] = "bearer"
+    user_id: Optional[int] = None
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    requires_2fa: bool = False
+    temp_token: Optional[str] = None
+    is_totp_enabled: bool = False
+
+class TOTPSetupResponse(BaseModel):
+    secret: str
+    otpauth_url: str
+    qr_code: str  # Base64 data URL
+
+class TOTPVerifyRequest(BaseModel):
+    code: str = Field(..., min_length=6, max_length=8)
+
+class TOTPLoginRequest(BaseModel):
+    temp_token: str
+    code: str = Field(..., min_length=6, max_length=8)
+
+class TOTPStatusResponse(BaseModel):
+    is_totp_enabled: bool
+    email: str
 
 class UserProfileUpdate(BaseModel):
     career_goals: Optional[str] = None
@@ -47,6 +75,7 @@ class UserOut(BaseModel):
     email: EmailStr
     full_name: str
     is_active: bool
+    is_totp_enabled: bool = False
     created_at: datetime
     profile: Optional[UserProfileOut] = None
 

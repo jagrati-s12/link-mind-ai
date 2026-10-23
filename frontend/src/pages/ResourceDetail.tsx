@@ -16,7 +16,8 @@ import {
   Save,
   CheckSquare,
   Clock,
-  DollarSign
+  DollarSign,
+  GraduationCap
 } from 'lucide-react';
 import { api } from '../services/api';
 import { ApplicationStatus } from '../types';
@@ -295,28 +296,48 @@ export const ResourceDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column (1 Col): Application Tracker, Folders, Notes */}
+        {/* Right Column (1 Col): Application Tracker / Learning Tracker, Folders, Notes */}
         <div className="space-y-6">
-          {/* Application Stage Tracker */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
-            <div className="flex items-center space-x-2">
-              <CheckSquare className="w-4 h-4 text-brand-600" />
-              <h3 className="font-bold text-slate-900 dark:text-white text-sm">Application Status</h3>
+          {isCourse ? (
+            /* Course Progress Tracker Card */
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+              <div className="flex items-center space-x-2">
+                <GraduationCap className="w-4 h-4 text-indigo-600" />
+                <h3 className="font-bold text-slate-900 dark:text-white text-sm">Course Learning Status</h3>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                Track your active modules, completion %, and study updates in your Course Tracker.
+              </p>
+              <Link
+                to="/course-tracker"
+                className="inline-flex items-center space-x-1.5 w-full justify-center bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 font-semibold text-xs px-3.5 py-2 rounded-xl transition-colors"
+              >
+                <span>Open Course Tracker</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
             </div>
+          ) : (
+            /* Application Stage Tracker for Internships & Jobs */
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+              <div className="flex items-center space-x-2">
+                <CheckSquare className="w-4 h-4 text-brand-600" />
+                <h3 className="font-bold text-slate-900 dark:text-white text-sm">Application Status</h3>
+              </div>
 
-            <select
-              value={appStatus}
-              onChange={(e) => handleStatusChange(e.target.value as ApplicationStatus)}
-              className="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
-            >
-              {statuses.map((st) => (
-                <option key={st} value={st}>{st}</option>
-              ))}
-            </select>
-            <p className="text-[11px] text-slate-400">
-              Track stages from Saved to Interview and Offer in the Applications dashboard.
-            </p>
-          </div>
+              <select
+                value={appStatus}
+                onChange={(e) => handleStatusChange(e.target.value as ApplicationStatus)}
+                className="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
+              >
+                {statuses.map((st) => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-slate-400">
+                Track interview rounds and submission status in the Internship Tracker.
+              </p>
+            </div>
+          )}
 
           {/* Connected Collections / Subject Folders */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">

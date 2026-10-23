@@ -204,6 +204,22 @@ export interface Application {
   resource?: Resource | null;
 }
 
+export type CourseProgressStatus = 'Not Started' | 'In Progress' | 'Halfway' | 'Reviewing' | 'Completed' | 'Certified';
+
+export interface CourseProgress {
+  id: number;
+  user_id: number;
+  resource_id: number;
+  status: CourseProgressStatus;
+  progress_percentage: number;
+  current_module: string;
+  target_completion_date?: string | null;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+  resource?: Resource | null;
+}
+
 export interface User {
   id: number;
   email: string;

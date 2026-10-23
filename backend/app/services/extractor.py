@@ -1,7 +1,7 @@
 import logging
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from app.models import Source, Resource, Collection, UserProfile, Resume, UserSkill, Recommendation, Application
+from app.models import Source, Resource, Collection, UserProfile, Resume, UserSkill, Recommendation, Application, CourseProgress
 from app.services.fetcher import fetch_url_content, extract_document_file
 from app.services.ai_adapter import extract_structured_opportunities
 from app.services.matcher import calculate_recommendation
@@ -139,44 +139,12 @@ async def process_source(db: Session, source_id: int) -> Source:
         logger.exception("AI Extraction failed")
         source.extraction_status = "failed"
         source.error_message = f"AI extraction error: {str(e)}"
-        # Auto-create Application record for internships & jobs in "Saved" status
-        if res.type in ("internship", "job"):
-            existing_app = db.query(Application).filter(
-                Application.user_id == source.user_id,
-                Application.resource_id == res.id
-            ).first()
-            if not existing_app:
-                new_app = Application(
-                    user_id=source.user_id,
-                    resource_id=res.id,
-                    status="Saved",
-                    deadline=res.deadline,
-                    notes=""
-                )
-                db.add(new_app)
-
         db.commit()
         return source
 
     if not raw_opps:
         source.extraction_status = "partial"
         source.error_message = "No specific courses or opportunities identified in the content."
-        # Auto-create Application record for internships & jobs in "Saved" status
-        if res.type in ("internship", "job"):
-            existing_app = db.query(Application).filter(
-                Application.user_id == source.user_id,
-                Application.resource_id == res.id
-            ).first()
-            if not existing_app:
-                new_app = Application(
-                    user_id=source.user_id,
-                    resource_id=res.id,
-                    status="Saved",
-                    deadline=res.deadline,
-                    notes=""
-                )
-                db.add(new_app)
-
         db.commit()
         return source
 
@@ -271,6 +239,24 @@ async def process_source(db: Session, source_id: int) -> Source:
                     notes=""
                 )
                 db.add(new_app)
+
+        # Auto-create CourseProgress record for courses & certifications in "In Progress" status
+        if res.type in ("course", "certification"):
+            existing_cp = db.query(CourseProgress).filter(
+                CourseProgress.user_id == source.user_id,
+                CourseProgress.resource_id == res.id
+            ).first()
+            if not existing_cp:
+                new_cp = CourseProgress(
+                    user_id=source.user_id,
+                    resource_id=res.id,
+                    status="In Progress",
+                    progress_percentage=0,
+                    current_module="Introduction",
+                    target_completion_date=res.deadline,
+                    notes=""
+                )
+                db.add(new_cp)
 
         db.commit()
 

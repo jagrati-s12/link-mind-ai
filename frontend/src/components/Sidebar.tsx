@@ -18,7 +18,8 @@ import {
   Sparkles,
   Sun,
   Moon,
-  Building2
+  Building2,
+  GraduationCap
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
@@ -34,13 +35,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenCapture }) => {
     { to: '/inbox', label: 'Inbox', icon: Inbox },
     { to: '/resources', label: 'All Resources', icon: Layers },
     { to: '/courses', label: 'Courses', icon: BookOpen },
+    { to: '/course-tracker', label: 'Course Tracker', icon: GraduationCap },
     { to: '/internships', label: 'Internships', icon: Briefcase },
     { to: '/jobs', label: 'Jobs', icon: Building2 },
     { to: '/hackathons', label: 'Hackathons', icon: Trophy },
     { to: '/collections', label: 'Collections', icon: FolderKanban },
     { to: '/skills', label: 'Skill Map', icon: GitFork },
     { to: '/roadmaps', label: 'My Roadmaps', icon: Map },
-    { to: '/applications', label: 'Applications', icon: CheckSquare },
+    { to: '/applications', label: 'Internship Tracker', icon: CheckSquare },
     { to: '/assistant', label: 'AI Assistant', icon: Bot },
     { to: '/profile', label: 'Profile & Resume', icon: UserCheck },
     { to: '/settings', label: 'Settings', icon: Settings },

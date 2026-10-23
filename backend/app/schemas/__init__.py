@@ -357,6 +357,38 @@ class ApplicationOut(BaseModel):
     class Config:
         from_attributes = True
 
+# ----------------- Course Progress Tracker -----------------
+class CourseProgressCreate(BaseModel):
+    resource_id: int
+    status: Optional[str] = "In Progress"
+    progress_percentage: Optional[int] = 0
+    current_module: Optional[str] = ""
+    target_completion_date: Optional[str] = None
+    notes: Optional[str] = ""
+
+class CourseProgressUpdate(BaseModel):
+    status: Optional[str] = None
+    progress_percentage: Optional[int] = None
+    current_module: Optional[str] = None
+    target_completion_date: Optional[str] = None
+    notes: Optional[str] = None
+
+class CourseProgressOut(BaseModel):
+    id: int
+    user_id: int
+    resource_id: int
+    status: str
+    progress_percentage: int = 0
+    current_module: str = ""
+    target_completion_date: Optional[str] = None
+    notes: str = ""
+    created_at: datetime
+    updated_at: datetime
+    resource: Optional[ResourceOut] = None
+
+    class Config:
+        from_attributes = True
+
 # ----------------- Roadmap -----------------
 class RoadmapStep(BaseModel):
     id: str

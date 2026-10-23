@@ -35,8 +35,19 @@ def list_applications(
             db.add(new_app)
         db.commit()
 
-    apps = db.query(Application).filter(
-        Application.user_id == current_user.id
+    # Clean up any non-internship/job application records from legacy captures
+    legacy_non_jobs = db.query(Application).join(Resource).filter(
+        Application.user_id == current_user.id,
+        ~Resource.type.in_(["internship", "job"])
+    ).all()
+    if legacy_non_jobs:
+        for item in legacy_non_jobs:
+            db.delete(item)
+        db.commit()
+
+    apps = db.query(Application).join(Resource).filter(
+        Application.user_id == current_user.id,
+        Resource.type.in_(["internship", "job"])
     ).order_by(Application.created_at.desc()).all()
 
     results = []
@@ -59,6 +70,12 @@ def create_application(
     ).first()
     if not res:
         raise HTTPException(status_code=404, detail="Resource not found.")
+
+    if res.type not in ("internship", "job"):
+        raise HTTPException(
+            status_code=400,
+            detail="Applications tracker only tracks internships and jobs. For courses, use the Course Tracker."
+        )
 
     # Check if application already exists for this resource
     existing = db.query(Application).filter(

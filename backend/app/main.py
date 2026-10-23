@@ -6,7 +6,7 @@ from app.core.config import settings
 from app.core.db import engine, Base
 from app.api.v1 import (
     auth, sources, imports, resources, collections,
-    skills, recommendations, applications, roadmaps,
+    skills, recommendations, applications, course_tracker, roadmaps,
     assistant, profile, stats, settings as user_settings
 )
 
@@ -46,6 +46,7 @@ app.include_router(collections.router, prefix=settings.API_V1_STR)
 app.include_router(skills.router, prefix=settings.API_V1_STR)
 app.include_router(recommendations.router, prefix=settings.API_V1_STR)
 app.include_router(applications.router, prefix=settings.API_V1_STR)
+app.include_router(course_tracker.router, prefix=settings.API_V1_STR)
 app.include_router(roadmaps.router, prefix=settings.API_V1_STR)
 app.include_router(assistant.router, prefix=settings.API_V1_STR)
 app.include_router(profile.router, prefix=settings.API_V1_STR)

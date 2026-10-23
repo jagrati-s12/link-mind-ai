@@ -37,7 +37,12 @@ export const Applications: React.FC = () => {
     'Assessment', 'Interview', 'Offer', 'Rejected'
   ];
 
-  const filtered = (applications || []).filter(app => {
+  const validApps = (applications || []).filter(app => {
+    const resType = app.resource?.type?.toLowerCase();
+    return resType !== 'course' && resType !== 'certification';
+  });
+
+  const filtered = validApps.filter(app => {
     if (selectedFilter === 'all') return true;
     return app.status.toLowerCase() === selectedFilter.toLowerCase();
   });
@@ -48,16 +53,24 @@ export const Applications: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Internship Applications Tracker</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Track interview rounds, submission deadlines, and status updates for your opportunities
+            Track interview rounds, submission deadlines, and status updates exclusively for your internships and opportunities
           </p>
         </div>
 
-        <Link
-          to="/internships"
-          className="self-start sm:self-auto bg-brand-600 hover:bg-brand-700 text-white font-medium text-xs px-4 py-2 rounded-xl shadow-sm transition-colors"
-        >
-          Track From Saved Internships
-        </Link>
+        <div className="flex items-center space-x-2">
+          <Link
+            to="/course-tracker"
+            className="self-start sm:self-auto bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium text-xs px-3.5 py-2 rounded-xl transition-colors"
+          >
+            Course Tracker →
+          </Link>
+          <Link
+            to="/internships"
+            className="self-start sm:self-auto bg-brand-600 hover:bg-brand-700 text-white font-medium text-xs px-4 py-2 rounded-xl shadow-sm transition-colors"
+          >
+            Track From Saved Internships
+          </Link>
+        </div>
       </div>
 
       {/* Filter Tabs */}
@@ -70,10 +83,10 @@ export const Applications: React.FC = () => {
               : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
-          All Stages ({applications?.length || 0})
+          All Stages ({validApps.length})
         </button>
         {stages.map((st) => {
-          const count = (applications || []).filter(a => a.status === st).length;
+          const count = validApps.filter(a => a.status === st).length;
           return (
             <button
               key={st}

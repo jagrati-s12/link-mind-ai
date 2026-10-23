@@ -8,7 +8,8 @@ import {
   UserSkill,
   SkillGapData,
   Roadmap,
-  Application
+  Application,
+  CourseProgress
 } from '../types';
 
 const API_BASE = '/api/v1';
@@ -135,7 +136,7 @@ export const api = {
     method: 'POST'
   }),
 
-  // Applications
+  // Applications (Internships & Jobs)
   getApplications: () => fetchJson<Application[]>(`${API_BASE}/applications`),
   createApplication: (data: { resource_id: number; status?: string; deadline?: string; notes?: string }) =>
     fetchJson<Application>(`${API_BASE}/applications`, {
@@ -150,6 +151,30 @@ export const api = {
   deleteApplication: (id: number) => fetchJson<any>(`${API_BASE}/applications/${id}`, {
     method: 'DELETE'
   }),
+
+  // Course Progress & Learning Tracker
+  getCourseProgress: () => fetchJson<CourseProgress[]>(`${API_BASE}/course-tracker`),
+  createCourseProgress: (data: {
+    resource_id: number;
+    status?: string;
+    progress_percentage?: number;
+    current_module?: string;
+    target_completion_date?: string;
+    notes?: string;
+  }) =>
+    fetchJson<CourseProgress>(`${API_BASE}/course-tracker`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  updateCourseProgress: (id: number, data: Partial<CourseProgress>) =>
+    fetchJson<CourseProgress>(`${API_BASE}/course-tracker/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+  deleteCourseProgress: (id: number) =>
+    fetchJson<any>(`${API_BASE}/course-tracker/${id}`, {
+      method: 'DELETE'
+    }),
 
   // Roadmaps
   getRoadmaps: () => fetchJson<Roadmap[]>(`${API_BASE}/roadmaps`),

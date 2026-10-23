@@ -10,6 +10,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Inbox } from './pages/Inbox';
 import { Resources } from './pages/Resources';
 import { Courses } from './pages/Courses';
+import { CourseTracker } from './pages/CourseTracker';
 import { Internships } from './pages/Internships';
 import { Jobs } from './pages/Jobs';
 import { Hackathons } from './pages/Hackathons';
@@ -55,6 +56,7 @@ export const App: React.FC = () => {
             <Route path="/inbox" element={<Inbox onOpenCapture={() => setIsCaptureOpen(true)} />} />
             <Route path="/resources" element={<Resources onOpenCapture={() => setIsCaptureOpen(true)} />} />
             <Route path="/courses" element={<Courses onOpenCapture={() => setIsCaptureOpen(true)} />} />
+            <Route path="/course-tracker" element={<CourseTracker onOpenCapture={() => setIsCaptureOpen(true)} />} />
             <Route path="/internships" element={<Internships onOpenCapture={() => setIsCaptureOpen(true)} />} />
             <Route path="/jobs" element={<Jobs onOpenCapture={() => setIsCaptureOpen(true)} />} />
             <Route path="/hackathons" element={<Hackathons onOpenCapture={() => setIsCaptureOpen(true)} />} />

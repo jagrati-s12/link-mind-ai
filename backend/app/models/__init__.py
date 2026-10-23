@@ -39,6 +39,7 @@ class User(Base):
     user_skills = relationship("UserSkill", back_populates="user", cascade="all, delete-orphan")
     recommendations = relationship("Recommendation", back_populates="user", cascade="all, delete-orphan")
     applications = relationship("Application", back_populates="user", cascade="all, delete-orphan")
+    course_progress = relationship("CourseProgress", back_populates="user", cascade="all, delete-orphan")
     roadmaps = relationship("Roadmap", back_populates="user", cascade="all, delete-orphan")
     import_jobs = relationship("ImportJob", back_populates="user", cascade="all, delete-orphan")
 
@@ -124,6 +125,7 @@ class Resource(Base):
     skills = relationship("ResourceSkill", back_populates="resource", cascade="all, delete-orphan")
     recommendations = relationship("Recommendation", back_populates="resource", cascade="all, delete-orphan")
     applications = relationship("Application", back_populates="resource", cascade="all, delete-orphan")
+    course_progress = relationship("CourseProgress", back_populates="resource", cascade="all, delete-orphan")
     outward_relations = relationship("ResourceRelation", foreign_keys="ResourceRelation.source_resource_id", cascade="all, delete-orphan")
     inward_relations = relationship("ResourceRelation", foreign_keys="ResourceRelation.target_resource_id", cascade="all, delete-orphan")
 
@@ -231,6 +233,23 @@ class Application(Base):
 
     user = relationship("User", back_populates="applications")
     resource = relationship("Resource", back_populates="applications")
+
+class CourseProgress(Base):
+    __tablename__ = "course_progress"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    resource_id = Column(Integer, ForeignKey("resources.id", ondelete="CASCADE"), nullable=False, index=True)
+    status = Column(String(50), default="In Progress") # Not Started, In Progress, Halfway, Reviewing, Completed, Certified
+    progress_percentage = Column(Integer, default=0)    # 0 - 100
+    current_module = Column(String(255), default="")    # e.g. "Course 3: Prepare Data for Exploration"
+    target_completion_date = Column(String(50), nullable=True)
+    notes = Column(Text, default="")
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+
+    user = relationship("User", back_populates="course_progress")
+    resource = relationship("Resource", back_populates="course_progress")
 
 class Roadmap(Base):
     __tablename__ = "roadmaps"

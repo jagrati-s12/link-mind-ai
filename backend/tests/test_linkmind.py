@@ -453,3 +453,59 @@ def test_google_authenticator_totp_flow(client, db_session):
     # Check status is disabled
     status_resp3 = client.get("/api/v1/auth/2fa/status", headers=headers).json()
     assert status_resp3["is_totp_enabled"] is False
+
+def test_course_tracker_and_isolation_from_applications(client, user_token):
+    """Verify that courses are tracked in Course Tracker and completely isolated from Internship Applications"""
+    headers = {"Authorization": f"Bearer {user_token}"}
+
+    # 1. Save a Course
+    course_resp = client.post("/api/v1/resources", json={
+        "title": "Machine Learning Specialization",
+        "organization": "DeepLearning.AI",
+        "type": "course",
+        "taught_skills": ["Python", "Supervised Learning", "Linear Regression"]
+    }, headers=headers)
+    assert course_resp.status_code == 200
+    course_id = course_resp.json()["id"]
+
+    # 2. Save an Internship
+    intern_resp = client.post("/api/v1/resources", json={
+        "title": "Software Engineering Intern",
+        "organization": "Microsoft",
+        "type": "internship",
+        "location": "Redmond, WA",
+        "deadline": "Dec 15, 2026"
+    }, headers=headers)
+    assert intern_resp.status_code == 200
+    intern_id = intern_resp.json()["id"]
+
+    # 3. Check /applications: MUST ONLY contain the internship, NOT the course
+    apps = client.get("/api/v1/applications", headers=headers).json()
+    app_resource_ids = [a["resource_id"] for a in apps]
+    assert intern_id in app_resource_ids
+    assert course_id not in app_resource_ids
+
+    # 4. Attempting to force-create an application for the course should return 400
+    bad_app = client.post("/api/v1/applications", json={"resource_id": course_id}, headers=headers)
+    assert bad_app.status_code == 400
+
+    # 5. Check /course-tracker: auto-syncs the course
+    tracked = client.get("/api/v1/course-tracker", headers=headers).json()
+    tracked_ids = [t["resource_id"] for t in tracked]
+    assert course_id in tracked_ids
+
+    course_item = next(t for t in tracked if t["resource_id"] == course_id)
+    assert course_item["status"] in ("In Progress", "Not Started")
+
+    # 6. Update course progress milestone and %
+    update_resp = client.put(f"/api/v1/course-tracker/{course_item['id']}", json={
+        "progress_percentage": 60,
+        "current_module": "Week 2: Cost Function",
+        "notes": "Completed quiz 1 with 100%"
+    }, headers=headers)
+    assert update_resp.status_code == 200
+    updated_data = update_resp.json()
+    assert updated_data["progress_percentage"] == 60
+    assert updated_data["current_module"] == "Week 2: Cost Function"
+    assert "Completed quiz" in updated_data["notes"]
+

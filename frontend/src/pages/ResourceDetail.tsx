@@ -325,11 +325,11 @@ export const ResourceDetail: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
               {/* Link 1: Competition / Direct Course Link */}
               {hasDistinctDirectUrl ? (
-                <div className="p-4 rounded-2xl bg-brand-50/60 dark:bg-brand-950/30 border border-brand-200 dark:border-brand-900/50 flex flex-col justify-between space-y-3">
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 flex flex-col justify-between space-y-3">
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-brand-700 dark:text-brand-300 flex items-center space-x-1">
-                        <Trophy className="w-3.5 h-3.5 mr-1 text-brand-600" />
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 flex items-center space-x-1">
+                        <Trophy className="w-3.5 h-3.5 mr-1 text-brand-600 dark:text-blue-400" />
                         {resource.type === 'hackathon'
                           ? 'Competition Link'
                           : isCourse
@@ -340,12 +340,12 @@ export const ResourceDetail: React.FC = () => {
                         {isCourse ? (isVideo ? 'YouTube' : 'Course') : (resource.type === 'hackathon' ? 'Competition' : 'Apply Direct')}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                    <p className="text-xs text-slate-600 dark:text-slate-300">
                       {isCourse
                         ? (isVideo ? 'Direct link to watch the lecture video on YouTube.' : 'Direct link to university course curriculum and syllabus.')
                         : 'Direct destination to register, submit, or apply.'}
                     </p>
-                    <div className="mt-2 text-xs font-mono break-all text-slate-800 dark:text-slate-200 bg-white/90 dark:bg-slate-900/90 p-2.5 rounded-xl border border-brand-200/60 dark:border-brand-900/60">
+                    <div className="mt-2 text-xs font-mono break-all text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
                       {resource.direct_url}
                     </div>
                   </div>
@@ -386,14 +386,14 @@ export const ResourceDetail: React.FC = () => {
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700/80 flex flex-col justify-between space-y-3">
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         Direct Video / Apply Link
                       </span>
-                      <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 font-semibold px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold px-2 py-0.5 rounded-full">
                         Not Available
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 leading-relaxed mt-2">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-2">
                       No separate direct website or video URL was specified for this individual entry. You can view the full context in the reference repository / post on the right.
                     </p>
                   </div>
@@ -401,19 +401,19 @@ export const ResourceDetail: React.FC = () => {
               )}
 
               {/* Link 2: Reference / Discovery Post Link */}
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 flex flex-col justify-between space-y-3">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 flex flex-col justify-between space-y-3">
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center space-x-1">
-                      <Bookmark className="w-3.5 h-3.5 mr-1 text-slate-500" />
+                      <Bookmark className="w-3.5 h-3.5 mr-1 text-slate-500 dark:text-slate-400" />
                       Reference / Discovery Post
                     </span>
                     <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold px-2 py-0.5 rounded-full">Source Post</span>
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
                     The LinkedIn post, social feed, or portal where this was discovered.
                   </p>
-                  <div className="mt-2 text-xs font-mono break-all text-slate-800 dark:text-slate-200 bg-white/90 dark:bg-slate-900/90 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <div className="mt-2 text-xs font-mono break-all text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
                     {resource.source_url || 'No reference URL'}
                   </div>
                 </div>

@@ -266,8 +266,8 @@ def heuristic_extract_opportunities(raw_text: str, source_title: str = "", sourc
                     direct_url = clean_u
                     break
 
-        if not direct_url and (is_course_site or is_job_site) and source_url:
-            direct_url = source_url
+        # If no separate direct URL exists in the chunk, keep direct_url None
+        # rather than duplicating source_url, so the user clearly sees no direct link was found.
 
         # Extract deadline
         deadline = None
@@ -469,55 +469,70 @@ def extract_markdown_curated_courses(raw_text: str, source_title: str = "", sour
         sec_body = sections[i + 1]
 
         # Extract course items from both Markdown list items (-/+/1.) and Markdown table rows
-        # Format A: Markdown list items: - [Title](url) rest of line
-        items = re.findall(
-            r'(?m)^[-*+0-9.]+\s+(?:\*\*)?\[([^\]]+)\]\(([^)]+)\)(?:\*\*)?\s*(.*?)(?=\n[-*+0-9.]+\s+(?:\*\*)?\[|\n#{1,4}\s+|\Z)',
-            sec_body,
-            re.S
-        )
-
-        for code_or_label, url, rest in items:
-            url_clean = url.strip()
-            if not url_clean or url_clean.startswith('#'):
-                continue
-            if url_clean in seen_urls:
+        # Format A: Markdown list entries (handles YouTube playlists, course portals, video lecture lines)
+        bullets = re.split(r'(?m)^(?=[-*+0-9.]+\s+)', sec_body)
+        for b in bullets:
+            b_str = b.strip()
+            if not b_str or not re.match(r'^[-*+0-9.]+\s+', b_str):
                 continue
 
-            seen_urls.add(url_clean)
+            all_links = re.findall(r'\[([^\]]+)\]\((https?://[^)]+)\)', b_str)
+            if not all_links:
+                continue
 
-            label = code_or_label.strip()
-            title = label
-            org = None
+            # Prioritize YouTube / Video links for video course catalogs!
+            yt_links = [u for t, u in all_links if ('youtube.com' in u or 'youtu.be' in u)]
+            portal_links = [u for t, u in all_links if not any(w in t.lower() for w in ['notes', 'contributing', 'issue', 'license', 'archive.org', 'video', 'assignment', 'lecture videos'])]
+            
+            direct_link = yt_links[0] if yt_links else (portal_links[0] if portal_links else all_links[0][1])
+            direct_link = direct_link.strip()
+            if direct_link == source_url or direct_link.startswith('#'):
+                continue
+            if direct_link in seen_urls:
+                continue
+            seen_urls.add(direct_link)
+
+            # Determine title: check for non-meta link text or pre-link heading
+            content_links = [(t, u) for t, u in all_links if not any(w in t.lower() for w in ['video playlist', 'lecture video', 'video', 'playlist', 'notes', 'website', 'assignment', 'lecture videos'])]
+            if content_links:
+                raw_title = content_links[0][0].strip()
+            else:
+                first_line = b_str.split('\n')[0].strip()
+                pre_link = first_line.split('[')[0].strip().lstrip('-*+0123456789. ')
+                raw_title = pre_link.rstrip(' |:-') if pre_link else all_links[0][0].strip()
 
             # Look for bold course name: **Course Title**
-            bold_match = re.search(r'\*\*([^*]+)\*\*', rest)
+            bold_match = re.search(r'\*\*([^*]+)\*\*', b_str)
             if bold_match:
                 bold_title = bold_match.group(1).strip()
-                if label.lower() not in bold_title.lower() and len(label) <= 15:
-                    title = f"{label}: {bold_title}"
+                if raw_title.lower() not in bold_title.lower() and len(raw_title) <= 20:
+                    title = f"{raw_title}: {bold_title}"
                 else:
                     title = bold_title
+            else:
+                title = re.sub(r'[*_`]', '', raw_title).strip()
 
+            if not title or len(title) < 2:
+                title = all_links[0][0].strip()
+
+            org = None
             # Look for italicized university/institution: *UC Berkeley*, *Stanford*, *MIT*
-            italic_match = re.search(r'(?<!\*)\*([^*]+)\*(?!\*)', rest)
+            italic_match = re.search(r'(?<!\*)\*([^*]+)\*(?!\*)', b_str)
             if italic_match:
                 cand_org = italic_match.group(1).strip()
                 if len(cand_org) < 60 and not any(kw in cand_org.lower() for kw in ['video', 'note', 'assignment', 'http', 'lecture']):
                     org = cand_org
 
-            # If org still None, check if University/College mentioned in line
             if not org:
-                univ_match = re.search(r'\b([A-Z][A-Za-z\s]+(?:University|College|Institute|MIT|Caltech|Stanford|Berkeley|Harvard|Oxford|Cambridge))\b', rest)
+                univ_match = re.search(r'\b([A-Z][A-Za-z\s]+(?:University|College|Institute|MIT|Caltech|Stanford|Berkeley|Harvard|Oxford|Cambridge|UNSW))\b', b_str)
                 if univ_match:
                     org = univ_match.group(1).strip()
 
-            # Clean description bullets
+            # Description
             desc_lines = []
-            for line in rest.split('\n'):
+            for line in b_str.split('\n'):
                 l = line.strip()
                 if not l or '<img' in l:
-                    continue
-                if re.search(r'lecture (?:videos|notes)|assignments|readings|exams|syllabus|<img', l, re.I):
                     continue
                 cleaned = re.sub(r'^[-*o•\s]+', '', l).strip()
                 cleaned = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', cleaned) # unwrap markdown links
@@ -526,7 +541,7 @@ def extract_markdown_curated_courses(raw_text: str, source_title: str = "", sour
 
             desc = ' '.join(desc_lines[:3]).strip()
             if not desc:
-                desc = f"{title} comprehensive university curriculum and course materials."
+                desc = f"{title} university course lectures and curriculum materials."
 
             taught_skills = extract_skills_from_text(f"{title} {desc} {folder_name}")
 
@@ -534,7 +549,7 @@ def extract_markdown_curated_courses(raw_text: str, source_title: str = "", sour
                 "type": "course",
                 "title": title,
                 "organization": org or "University",
-                "direct_url": url_clean,
+                "direct_url": direct_link,
                 "description": desc,
                 "section": folder_name,
                 "suggested_collection": folder_name,

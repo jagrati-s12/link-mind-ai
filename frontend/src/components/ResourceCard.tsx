@@ -11,7 +11,20 @@ interface ResourceCardProps {
 
 export const ResourceCard: React.FC<ResourceCardProps> = ({ resource }) => {
   const isCourse = resource.type === 'course' || resource.type === 'certification';
+  const isVideo = Boolean(
+    resource.direct_url && (resource.direct_url.includes('youtube.com') || resource.direct_url.includes('youtu.be'))
+  );
   const score = resource.recommendation?.fit_score;
+
+  const getActionLabel = () => {
+    if (isCourse) {
+      return isVideo ? 'Watch Video' : 'Open Course';
+    }
+    if (resource.type === 'hackathon') {
+      return 'Compete';
+    }
+    return 'Apply';
+  };
 
   const getTypeBadgeClass = (type: string) => {
     switch (type) {
@@ -150,10 +163,14 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ resource }) => {
               href={resource.direct_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center space-x-1 text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:underline bg-brand-50 dark:bg-brand-950/40 px-2 py-0.5 rounded-lg border border-brand-200/60 dark:border-brand-900/40 transition-colors"
-              title="Open Direct Competition / Application Link"
+              className={`flex items-center space-x-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg border transition-colors ${
+                isVideo
+                  ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border-red-200/60 dark:border-red-900/40 hover:underline'
+                  : 'text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/40 border-brand-200/60 dark:border-brand-900/40 hover:underline'
+              }`}
+              title={isCourse ? (isVideo ? "Watch on YouTube" : "Open Course Materials") : "Open Direct Link"}
             >
-              <span>{resource.type === 'hackathon' ? 'Compete' : 'Apply'}</span>
+              <span>{getActionLabel()}</span>
               <ExternalLink className="w-2.5 h-2.5" />
             </a>
           )}

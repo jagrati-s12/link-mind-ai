@@ -97,6 +97,12 @@ export const ResourceDetail: React.FC = () => {
 
   const rec = resource.recommendation;
   const isCourse = resource.type === 'course' || resource.type === 'certification';
+  const isVideo = Boolean(
+    resource.direct_url && (resource.direct_url.includes('youtube.com') || resource.direct_url.includes('youtu.be'))
+  );
+  const hasDistinctDirectUrl = Boolean(
+    resource.direct_url && resource.direct_url.trim() && resource.direct_url !== resource.source_url
+  );
 
   const handleStatusChange = (newStatus: ApplicationStatus) => {
     setAppStatus(newStatus);
@@ -152,7 +158,11 @@ export const ResourceDetail: React.FC = () => {
                 rel="noopener noreferrer"
                 className="flex items-center space-x-1.5 bg-brand-600 hover:bg-brand-700 text-white font-medium text-xs px-4 py-2 rounded-xl shadow-sm transition-colors"
               >
-                <span>{isCourse ? 'View Course Syllabus' : (resource.type === 'hackathon' ? 'Competition Link' : 'Apply Directly')}</span>
+                <span>
+                  {isCourse
+                    ? (isVideo ? 'Watch Video on YouTube' : 'Open Course Material')
+                    : (resource.type === 'hackathon' ? 'Competition Link' : 'Apply Directly')}
+                </span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             )}
@@ -304,33 +314,49 @@ export const ResourceDetail: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-              {/* Link 1: Competition / Direct Application Link */}
-              <div className="p-4 rounded-2xl bg-brand-50/60 dark:bg-brand-950/30 border border-brand-200 dark:border-brand-900/50 flex flex-col justify-between space-y-3">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-brand-700 dark:text-brand-300 flex items-center space-x-1">
-                      <Trophy className="w-3.5 h-3.5 mr-1 text-brand-600" />
-                      {resource.type === 'hackathon' ? 'Competition Link' : isCourse ? 'Course Syllabus Link' : 'Direct Application Link'}
-                    </span>
-                    <span className="text-[10px] bg-brand-600 text-white font-semibold px-2 py-0.5 rounded-full">Apply Direct</span>
+              {/* Link 1: Competition / Direct Course Link */}
+              {hasDistinctDirectUrl ? (
+                <div className="p-4 rounded-2xl bg-brand-50/60 dark:bg-brand-950/30 border border-brand-200 dark:border-brand-900/50 flex flex-col justify-between space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-brand-700 dark:text-brand-300 flex items-center space-x-1">
+                        <Trophy className="w-3.5 h-3.5 mr-1 text-brand-600" />
+                        {resource.type === 'hackathon'
+                          ? 'Competition Link'
+                          : isCourse
+                          ? (isVideo ? 'YouTube Video / Playlist' : 'Course Materials')
+                          : 'Direct Application Link'}
+                      </span>
+                      <span className="text-[10px] bg-brand-600 text-white font-semibold px-2 py-0.5 rounded-full">
+                        {isCourse ? (isVideo ? 'YouTube' : 'Course') : (resource.type === 'hackathon' ? 'Competition' : 'Apply Direct')}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      {isCourse
+                        ? (isVideo ? 'Direct link to watch the lecture video on YouTube.' : 'Direct link to university course curriculum and syllabus.')
+                        : 'Direct destination to register, submit, or apply.'}
+                    </p>
+                    <div className="mt-2 text-xs font-mono break-all text-slate-800 dark:text-slate-200 bg-white/90 dark:bg-slate-900/90 p-2.5 rounded-xl border border-brand-200/60 dark:border-brand-900/60">
+                      {resource.direct_url}
+                    </div>
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-400">
-                    Direct destination to register, submit, or apply.
-                  </p>
-                  <div className="mt-2 text-xs font-mono break-all text-slate-800 dark:text-slate-200 bg-white/90 dark:bg-slate-900/90 p-2.5 rounded-xl border border-brand-200/60 dark:border-brand-900/60">
-                    {resource.direct_url || 'No direct URL extracted'}
-                  </div>
-                </div>
 
-                {resource.direct_url && (
                   <div className="flex items-center space-x-2 pt-1">
                     <a
-                      href={resource.direct_url}
+                      href={resource.direct_url || '#'}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 inline-flex items-center justify-center space-x-1.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs px-3 py-2 rounded-xl transition-colors shadow-sm"
+                      className={`flex-1 inline-flex items-center justify-center space-x-1.5 text-white font-semibold text-xs px-3 py-2 rounded-xl transition-colors shadow-sm ${
+                        isVideo
+                          ? 'bg-red-600 hover:bg-red-700'
+                          : 'bg-brand-600 hover:bg-brand-700'
+                      }`}
                     >
-                      <span>{resource.type === 'hackathon' ? 'Open Competition' : 'Open Direct Link'}</span>
+                      <span>
+                        {isCourse
+                          ? (isVideo ? 'Watch on YouTube' : 'Open Course Material')
+                          : (resource.type === 'hackathon' ? 'Open Competition' : 'Apply Directly')}
+                      </span>
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                     <button
@@ -340,14 +366,30 @@ export const ResourceDetail: React.FC = () => {
                         setTimeout(() => setCopiedDirect(false), 2000);
                       }}
                       className="px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 transition-colors flex items-center space-x-1"
-                      title="Copy Competition Link"
+                      title="Copy Direct Link"
                     >
                       {copiedDirect ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                       <span>{copiedDirect ? 'Copied' : 'Copy'}</span>
                     </button>
                   </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700/80 flex flex-col justify-between space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Direct Video / Apply Link
+                      </span>
+                      <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 font-semibold px-2 py-0.5 rounded-full">
+                        Not Available
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 leading-relaxed mt-2">
+                      No separate direct website or video URL was specified for this individual entry. You can view the full context in the reference repository / post on the right.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Link 2: Reference / Discovery Post Link */}
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 flex flex-col justify-between space-y-3">

@@ -672,6 +672,41 @@ def test_markdown_tables_and_numbered_lists_course_extraction():
     assert c3["section"] == "Deep Learning"
     assert c3["direct_url"] == "https://course.fast.ai/"
 
+def test_github_relative_links_resolution_and_blob_vs_tree():
+    """Verify that relative links inside GitHub repos resolve to blob/master for files and tree/master for folders"""
+    from app.services.ai_adapter import extract_markdown_curated_courses, resolve_github_relative_url
+
+    # 1. Test resolve_github_relative_url directly
+    f_url = resolve_github_relative_url("./tool_use/README.md", "anthropics", "courses", branch="master")
+    assert f_url == "https://github.com/anthropics/courses/blob/master/tool_use/README.md"
+
+    f_url2 = resolve_github_relative_url("./anthropic_api_fundamentals/README.md", "anthropics", "courses", branch="master")
+    assert f_url2 == "https://github.com/anthropics/courses/blob/master/anthropic_api_fundamentals/README.md"
+
+    d_url = resolve_github_relative_url("./tool_use", "anthropics", "courses", branch="master")
+    assert d_url == "https://github.com/anthropics/courses/tree/master/tool_use"
+
+    # 2. Test extraction of anthropics/courses markdown
+    anthropic_markdown = """
+# Anthropic courses
+
+## Educational Courses
+1. [Anthropic API fundamentals](./anthropic_api_fundamentals/README.md) - teaches the essentials of working with the Claude SDK.
+2. [Prompt engineering interactive tutorial](./prompt_engineering_interactive_tutorial/README.md) - a comprehensive step-by-step guide.
+3. [Tool use](./tool_use/README.md) - teaches everything you need to know to implement tool use.
+"""
+    # Even if default branch is master, it correctly formats as blob/master/
+    courses = extract_markdown_curated_courses(
+        anthropic_markdown,
+        source_title="Anthropic courses",
+        source_url="https://github.com/anthropics/courses/tree/master"
+    )
+    assert len(courses) == 3
+    tool_course = next(c for c in courses if "Tool use" in c["title"])
+    assert tool_course["direct_url"] == "https://github.com/anthropics/courses/blob/master/tool_use/README.md"
+    assert tool_course["organization"] == "Anthropic"
+
+
 
 
 

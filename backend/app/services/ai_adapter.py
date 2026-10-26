@@ -431,6 +431,49 @@ async def call_llm_json(prompt: str, system_prompt: str) -> Optional[Any]:
 
     return None
 
+_GH_BRANCH_CACHE: Dict[str, str] = {}
+
+def get_github_repo_default_branch(owner: str, repo: str) -> str:
+    """
+    Determines default branch ('master' vs 'main') for a GitHub repository
+    via fast HEAD checks against raw CDN to avoid rate limits.
+    """
+    key = f"{owner.lower()}/{repo.lower()}"
+    if key in _GH_BRANCH_CACHE:
+        return _GH_BRANCH_CACHE[key]
+
+    try:
+        with httpx.Client(timeout=3.0) as client:
+            r = client.head(f"https://raw.githubusercontent.com/{owner}/{repo}/main/README.md")
+            if r.status_code == 200:
+                _GH_BRANCH_CACHE[key] = "main"
+                return "main"
+            r = client.head(f"https://raw.githubusercontent.com/{owner}/{repo}/master/README.md")
+            if r.status_code == 200:
+                _GH_BRANCH_CACHE[key] = "master"
+                return "master"
+    except Exception:
+        pass
+
+    _GH_BRANCH_CACHE[key] = "main"
+    return "main"
+
+def resolve_github_relative_url(rel_path: str, gh_owner: str, gh_repo: str, branch: str = "main") -> str:
+    """
+    Properly converts relative GitHub links (e.g. './tool_use/README.md')
+    into correct GitHub web URLs:
+    - Files use '/blob/<branch>/<path>'
+    - Directories use '/tree/<branch>/<path>'
+    """
+    clean_p = rel_path.strip().lstrip('./')
+    if clean_p.startswith(('blob/', 'tree/')):
+        return f"https://github.com/{gh_owner}/{gh_repo}/{clean_p}"
+
+    last_segment = clean_p.split('/')[-1] if '/' in clean_p else clean_p
+    is_file = '.' in last_segment and not last_segment.startswith('.')
+    mode = "blob" if is_file else "tree"
+    return f"https://github.com/{gh_owner}/{gh_repo}/{mode}/{branch}/{clean_p}"
+
 def extract_markdown_curated_courses(raw_text: str, source_title: str = "", source_url: str = "") -> List[Dict[str, Any]]:
     """
     Intelligently parses curated university/tech course catalogs, awesome lists, and GitHub repositories
@@ -453,6 +496,14 @@ def extract_markdown_curated_courses(raw_text: str, source_title: str = "", sour
     gh_match = re.search(r'github\.com/([^/]+)/([^/?#]+)', source_url, re.I)
     gh_owner = gh_match.group(1) if gh_match else ''
     gh_repo = re.sub(r'\.git$', '', gh_match.group(2), flags=re.I) if gh_match else ''
+
+    gh_branch = "main"
+    if gh_owner and gh_repo:
+        branch_match = re.search(r'github\.com/[^/]+/[^/]+/(?:blob|tree)/([^/?#]+)', source_url, re.I)
+        if branch_match:
+            gh_branch = branch_match.group(1)
+        else:
+            gh_branch = get_github_repo_default_branch(gh_owner, gh_repo)
 
     # Default tech provider organization if present in source URL or title
     default_org = "University"
@@ -515,8 +566,7 @@ def extract_markdown_curated_courses(raw_text: str, source_title: str = "", sour
                     continue
                 if not u_clean.startswith('http'):
                     if gh_owner and gh_repo:
-                        rel_p = u_clean.lstrip('./')
-                        u_clean = f"https://github.com/{gh_owner}/{gh_repo}/tree/main/{rel_p}"
+                        u_clean = resolve_github_relative_url(u_clean, gh_owner, gh_repo, gh_branch)
                     else:
                         continue
                 all_links.append((t.strip(), u_clean))
@@ -624,12 +674,17 @@ def extract_markdown_curated_courses(raw_text: str, source_title: str = "", sour
             cols = [c.strip() for c in line_str.split('|')[1:-1]]
             if len(cols) < 2 or all(set(c).issubset({'-', ':', ' '}) for c in cols):
                 continue
-            table_link_match = re.search(r'\[([^\]]+)\]\((https?://[^)]+)\)', cols[0])
+            table_link_match = re.search(r'\[([^\]]+)\]\(([^)]+)\)', cols[0])
             if not table_link_match and len(cols) > 1:
-                table_link_match = re.search(r'\[([^\]]+)\]\((https?://[^)]+)\)', cols[1])
+                table_link_match = re.search(r'\[([^\]]+)\]\(([^)]+)\)', cols[1])
             if table_link_match:
                 t_title, t_url = table_link_match.groups()
                 t_url = t_url.strip()
+                if not t_url.startswith('http') and not t_url.startswith('#'):
+                    if gh_owner and gh_repo:
+                        t_url = resolve_github_relative_url(t_url, gh_owner, gh_repo, gh_branch)
+                    else:
+                        continue
                 if t_url in seen_urls:
                     continue
                 seen_urls.add(t_url)

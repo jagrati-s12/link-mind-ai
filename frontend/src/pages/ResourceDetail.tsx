@@ -17,7 +17,12 @@ import {
   CheckSquare,
   Clock,
   DollarSign,
-  GraduationCap
+  GraduationCap,
+  Link2,
+  Trophy,
+  Bookmark,
+  Copy,
+  Check
 } from 'lucide-react';
 import { api } from '../services/api';
 import { ApplicationStatus } from '../types';
@@ -32,6 +37,8 @@ export const ResourceDetail: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [appStatus, setAppStatus] = useState<ApplicationStatus>('Saved');
   const [isSavedApp, setIsSavedApp] = useState(false);
+  const [copiedDirect, setCopiedDirect] = useState(false);
+  const [copiedRef, setCopiedRef] = useState(false);
 
   const { data: resource, isLoading } = useQuery({
     queryKey: ['resource-detail', resourceId],
@@ -145,8 +152,22 @@ export const ResourceDetail: React.FC = () => {
                 rel="noopener noreferrer"
                 className="flex items-center space-x-1.5 bg-brand-600 hover:bg-brand-700 text-white font-medium text-xs px-4 py-2 rounded-xl shadow-sm transition-colors"
               >
-                <span>{isCourse ? 'View Course Syllabus' : 'Apply Directly'}</span>
+                <span>{isCourse ? 'View Course Syllabus' : (resource.type === 'hackathon' ? 'Competition Link' : 'Apply Directly')}</span>
                 <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
+
+            {resource.source_url && resource.source_url !== resource.direct_url && (
+              <a
+                href={resource.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center space-x-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-xs px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 transition-colors"
+                title="View original reference post where this was found"
+              >
+                <Bookmark className="w-3.5 h-3.5 mr-0.5" />
+                <span>Reference Post</span>
+                <ExternalLink className="w-3 h-3" />
               </a>
             )}
 
@@ -267,6 +288,109 @@ export const ResourceDetail: React.FC = () => {
                   </div>
                 ) : (
                   <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">All core requirements met!</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Dual Links Card: Competition / Application Link + Reference Post Link */}
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-slate-900 dark:text-white text-base flex items-center space-x-2">
+                <Link2 className="w-4 h-4 text-brand-600" />
+                <span>Opportunity Links & Provenance</span>
+              </h3>
+              <span className="text-xs text-slate-400">Direct Apply & Source Reference</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              {/* Link 1: Competition / Direct Application Link */}
+              <div className="p-4 rounded-2xl bg-brand-50/60 dark:bg-brand-950/30 border border-brand-200 dark:border-brand-900/50 flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-brand-700 dark:text-brand-300 flex items-center space-x-1">
+                      <Trophy className="w-3.5 h-3.5 mr-1 text-brand-600" />
+                      {resource.type === 'hackathon' ? 'Competition Link' : isCourse ? 'Course Syllabus Link' : 'Direct Application Link'}
+                    </span>
+                    <span className="text-[10px] bg-brand-600 text-white font-semibold px-2 py-0.5 rounded-full">Apply Direct</span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    Direct destination to register, submit, or apply.
+                  </p>
+                  <div className="mt-2 text-xs font-mono break-all text-slate-800 dark:text-slate-200 bg-white/90 dark:bg-slate-900/90 p-2.5 rounded-xl border border-brand-200/60 dark:border-brand-900/60">
+                    {resource.direct_url || 'No direct URL extracted'}
+                  </div>
+                </div>
+
+                {resource.direct_url && (
+                  <div className="flex items-center space-x-2 pt-1">
+                    <a
+                      href={resource.direct_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 inline-flex items-center justify-center space-x-1.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs px-3 py-2 rounded-xl transition-colors shadow-sm"
+                    >
+                      <span>{resource.type === 'hackathon' ? 'Open Competition' : 'Open Direct Link'}</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(resource.direct_url || '');
+                        setCopiedDirect(true);
+                        setTimeout(() => setCopiedDirect(false), 2000);
+                      }}
+                      className="px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 transition-colors flex items-center space-x-1"
+                      title="Copy Competition Link"
+                    >
+                      {copiedDirect ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedDirect ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Link 2: Reference / Discovery Post Link */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center space-x-1">
+                      <Bookmark className="w-3.5 h-3.5 mr-1 text-slate-500" />
+                      Reference / Discovery Post
+                    </span>
+                    <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold px-2 py-0.5 rounded-full">Source Post</span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    The LinkedIn post, social feed, or portal where this was discovered.
+                  </p>
+                  <div className="mt-2 text-xs font-mono break-all text-slate-800 dark:text-slate-200 bg-white/90 dark:bg-slate-900/90 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                    {resource.source_url || 'No reference URL'}
+                  </div>
+                </div>
+
+                {resource.source_url && (
+                  <div className="flex items-center space-x-2 pt-1">
+                    <a
+                      href={resource.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 inline-flex items-center justify-center space-x-1.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-semibold text-xs px-3 py-2 rounded-xl transition-colors shadow-sm"
+                    >
+                      <span>Open Reference Post</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(resource.source_url || '');
+                        setCopiedRef(true);
+                        setTimeout(() => setCopiedRef(false), 2000);
+                      }}
+                      className="px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 transition-colors flex items-center space-x-1"
+                      title="Copy Reference Post Link"
+                    >
+                      {copiedRef ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedRef ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

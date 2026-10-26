@@ -144,17 +144,33 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ resource }) => {
           compact={true}
         />
 
-        {resource.direct_url && (
-          <a
-            href={resource.direct_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center space-x-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-          >
-            <span>Direct</span>
-            <ExternalLink className="w-3 h-3" />
-          </a>
-        )}
+        <div className="flex items-center space-x-1.5">
+          {resource.direct_url && (
+            <a
+              href={resource.direct_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center space-x-1 text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:underline bg-brand-50 dark:bg-brand-950/40 px-2 py-0.5 rounded-lg border border-brand-200/60 dark:border-brand-900/40 transition-colors"
+              title="Open Direct Competition / Application Link"
+            >
+              <span>{resource.type === 'hackathon' ? 'Compete' : 'Apply'}</span>
+              <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+          )}
+
+          {resource.source_url && resource.source_url !== resource.direct_url && (
+            <a
+              href={resource.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center space-x-1 text-[11px] text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg transition-colors"
+              title="View original reference post where this was found"
+            >
+              <span>Ref Post</span>
+              <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );

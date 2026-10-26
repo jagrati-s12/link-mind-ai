@@ -236,16 +236,36 @@ def heuristic_extract_opportunities(raw_text: str, source_title: str = "", sourc
                 # Discard invalid junk chunk from review ratings or buttons
                 continue
 
-        # Find direct application link in chunk
+        # Find direct application/competition link in chunk
         direct_url = None
-        url_matches = re.findall(r'https?://[^\s<>"\'{}|\\^`]+', chunk)
-        for u in url_matches:
-            clean_u = u.rstrip(".,;)")
-            if clean_u != source_url and ("apply" in clean_u.lower() or "job" in clean_u.lower() or "careers" in clean_u.lower() or "course" in clean_u.lower() or "forms" in clean_u.lower() or "bit.ly" in clean_u.lower() or "lnkd.in" in clean_u.lower() or "devpost" in clean_u.lower()):
-                direct_url = clean_u
-                break
-        if not direct_url and url_matches and url_matches[0] != source_url:
-            direct_url = url_matches[0].rstrip(".,;)")
+        for line in lines:
+            if re.search(r'\b(?:apply|register|registration|link|compete|form|website|url|portal)\b', line, re.IGNORECASE):
+                line_urls = re.findall(r'https?://[^\s<>"\'{}|\\^`]+', line)
+                if line_urls:
+                    cand = line_urls[0].rstrip(".,;)")
+                    if cand != source_url:
+                        direct_url = cand
+                        break
+
+        if not direct_url:
+            url_matches = re.findall(r'https?://[^\s<>"\'{}|\\^`]+', chunk)
+            for u in url_matches:
+                clean_u = u.rstrip(".,;)")
+                if clean_u != source_url and any(kw in clean_u.lower() for kw in [
+                    "lnkd.in", "bit.ly", "tinyurl", "t.co", "forms.gle", "docs.google.com/forms",
+                    "devpost", "unstop", "hackerearth", "kaggle", "mlh.io", "apply", "job", "career",
+                    "greenhouse", "lever.co", "workday", "ashbyhq", "hackathon"
+                ]):
+                    direct_url = clean_u
+                    break
+
+        if not direct_url:
+            for u in re.findall(r'https?://[^\s<>"\'{}|\\^`]+', chunk):
+                clean_u = u.rstrip(".,;)")
+                if clean_u != source_url:
+                    direct_url = clean_u
+                    break
+
         if not direct_url and (is_course_site or is_job_site) and source_url:
             direct_url = source_url
 
@@ -323,8 +343,11 @@ def heuristic_extract_opportunities(raw_text: str, source_title: str = "", sourc
             evidence.append(lines[0][:120])
 
         # Short description
-        desc_lines = lines[1:6] if len(lines) > 1 else lines
+        desc_lines = lines[1:8] if len(lines) > 1 else lines
         description = "\n".join(desc_lines).strip()
+        if direct_url and direct_url != source_url and direct_url not in description:
+            label = "Competition / Registration Link" if opp_type == "hackathon" else "Direct Application Link"
+            description += f"\n- {label}: {direct_url}"
 
         # Sanity check title
         if len(title) > 160:
@@ -575,12 +598,12 @@ async def extract_structured_opportunities(
     if len(curated_courses) >= 2:
         return curated_courses
     system_prompt = (
-        "You are LinkMind AI's extraction engine. Extract individual learning, internship, and career opportunities "
-        "from the text. If a post contains multiple opportunities (e.g., 5 internships), extract each as a separate item.\n"
+        "You are LinkMind AI's extraction engine. Extract individual learning, internship, hackathon, and career opportunities "
+        "from the text. If a post (e.g. on LinkedIn, Twitter, or blogs) contains multiple opportunities (e.g., 3 hackathons), extract each as a separate item.\n"
         "Rules:\n"
         "1. Never invent missing facts. Use null for unknown fields (deadline, compensation, duration, etc.).\n"
-        "2. Detect type accurately: 'course', 'internship', 'job', 'project', 'certification', 'research', or 'resource'.\n"
-        "3. Provide direct application or course URLs if present in the text.\n"
+        "2. Detect type accurately: 'hackathon', 'internship', 'job', 'course', 'project', 'certification', 'research', or 'resource'.\n"
+        "3. Prioritize direct application or competition URLs (e.g. lnkd.in, devpost, forms, unstop, bit.ly, career portal links) as 'direct_url'. Preserve the original post link as the source.\n"
         "4. Include short source_evidence snippets supporting the extraction.\n"
         "Return a JSON object with key 'opportunities' containing a list of items."
     )

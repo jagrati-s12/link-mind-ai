@@ -639,5 +639,39 @@ Courses
     assert "Machine Learning" in c3_collections
     assert "Courses" in c3_collections
 
+def test_markdown_tables_and_numbered_lists_course_extraction():
+    """Verify that course tables and numbered lists from various curated repos parse into folders"""
+    from app.services.ai_adapter import extract_markdown_curated_courses
+
+    sample_table_catalog = """
+# Developer Curated Roadmaps
+
+## Systems & Infrastructure
+| Course | University | Description |
+|---|---|---|
+| [Distributed Systems 6.824](https://pdos.csail.mit.edu/6.824/) | MIT | Engineering distributed systems, fault-tolerance, and Raft consensus. |
+| [Operating Systems Three Easy Pieces](http://pages.cs.wisc.edu/~remzi/OSTEP/) | UW Madison | Fundamental concepts of virtualization, concurrency, and persistence. |
+
+## Deep Learning
+1. [Deep Learning Specialization](https://www.coursera.org/specializations/deep-learning) - DeepLearning.AI
+   Neural networks, backprop, structuring ML projects, and convolutional nets.
+2. [Fast.ai Practical Deep Learning](https://course.fast.ai/) - Fast.ai
+   Top-down deep learning course for coders using PyTorch.
+"""
+    courses = extract_markdown_curated_courses(sample_table_catalog, "developer-curated-roadmaps", "https://github.com/example/roadmaps")
+    assert len(courses) == 4
+    
+    # Check table parsing
+    c1 = next(c for c in courses if "6.824" in c["title"])
+    assert c1["section"] == "Systems & Infrastructure"
+    assert c1["direct_url"] == "https://pdos.csail.mit.edu/6.824/"
+    assert c1["organization"] == "MIT"
+
+    # Check numbered list parsing
+    c3 = next(c for c in courses if "Fast.ai" in c["title"])
+    assert c3["section"] == "Deep Learning"
+    assert c3["direct_url"] == "https://course.fast.ai/"
+
+
 
 

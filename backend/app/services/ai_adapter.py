@@ -410,17 +410,22 @@ async def call_llm_json(prompt: str, system_prompt: str) -> Optional[Any]:
 
 def extract_markdown_curated_courses(raw_text: str, source_title: str = "", source_url: str = "") -> List[Dict[str, Any]]:
     """
-    Intelligently parses curated university/tech course catalogs and awesome lists
+    Intelligently parses curated university/tech course catalogs, awesome lists, and GitHub repositories
     (e.g. prakhar1989/awesome-courses, ossu/computer-science, developer roadmaps)
     into individual categorized course resources. Preserves section category folders
     (e.g. 'Systems', 'Machine Learning', 'Algorithms') for automatic folder filing.
     """
-    sections = re.split(r'(?m)^#{2,4}\s+([^\n]+)', raw_text)
+    # 1. Normalize Setext headings (Heading\n--- or Heading\n===) to ATX markdown (## Heading)
+    normalized_text = re.sub(r'(?m)^([A-Za-z0-9][^\n]+)\n[=-]{3,}\s*$', r'## \1', raw_text)
+
+    # 2. Split on ATX markdown headings (# through ####)
+    sections = re.split(r'(?m)^#{1,4}\s+([^\n]+)', normalized_text)
     if len(sections) <= 2:
         return []
 
     courses = []
     seen_urls = set()
+    current_category = ""
 
     for i in range(1, len(sections), 2):
         sec_title = sections[i].strip()
@@ -430,15 +435,20 @@ def extract_markdown_curated_courses(raw_text: str, source_title: str = "", sour
         if sec_title_clean.lower() in (
             'introduction', 'table of contents', 'contents', 'legend',
             'license', 'contributing', 'how to use', 'authors', 'faq',
-            'prerequisites', 'overview'
+            'prerequisites', 'overview', 'code of conduct', 'guidelines'
         ):
             continue
 
+        if sec_title_clean.lower() != 'courses':
+            current_category = sec_title_clean
+
+        folder_name = current_category or sec_title_clean
         sec_body = sections[i + 1]
 
-        # Match markdown course items: '- [Code or Title](url) rest of line'
+        # Extract course items from both Markdown list items (-/+/1.) and Markdown table rows
+        # Format A: Markdown list items: - [Title](url) rest of line
         items = re.findall(
-            r'(?m)^[-*]\s+\[([^\]]+)\]\(([^)]+)\)\s*(.*?)(?=\n[-*]\s+\[|\n#{2,4}\s+|\Z)',
+            r'(?m)^[-*+0-9.]+\s+(?:\*\*)?\[([^\]]+)\]\(([^)]+)\)(?:\*\*)?\s*(.*?)(?=\n[-*+0-9.]+\s+(?:\*\*)?\[|\n#{1,4}\s+|\Z)',
             sec_body,
             re.S
         )
@@ -495,7 +505,7 @@ def extract_markdown_curated_courses(raw_text: str, source_title: str = "", sour
             if not desc:
                 desc = f"{title} comprehensive university curriculum and course materials."
 
-            taught_skills = extract_skills_from_text(f"{title} {desc} {sec_title_clean}")
+            taught_skills = extract_skills_from_text(f"{title} {desc} {folder_name}")
 
             courses.append({
                 "type": "course",
@@ -503,14 +513,48 @@ def extract_markdown_curated_courses(raw_text: str, source_title: str = "", sour
                 "organization": org or "University",
                 "direct_url": url_clean,
                 "description": desc,
-                "section": sec_title_clean,
-                "suggested_collection": sec_title_clean,
+                "section": folder_name,
+                "suggested_collection": folder_name,
                 "taught_skills": taught_skills,
                 "required_skills": [],
                 "confidence": 1.0,
                 "verification_status": "verified",
                 "notes": f"Imported from {source_title or 'curated list'}"
             })
+
+        # Format B: Markdown table rows: | [Title](url) | University | Description |
+        for table_line in sec_body.split('\n'):
+            line_str = table_line.strip()
+            if not line_str.startswith('|') or not line_str.endswith('|'):
+                continue
+            cols = [c.strip() for c in line_str.split('|')[1:-1]]
+            if len(cols) < 2 or all(set(c).issubset({'-', ':', ' '}) for c in cols):
+                continue
+            table_link_match = re.search(r'\[([^\]]+)\]\((https?://[^)]+)\)', cols[0])
+            if not table_link_match and len(cols) > 1:
+                table_link_match = re.search(r'\[([^\]]+)\]\((https?://[^)]+)\)', cols[1])
+            if table_link_match:
+                t_title, t_url = table_link_match.groups()
+                t_url = t_url.strip()
+                if t_url in seen_urls:
+                    continue
+                seen_urls.add(t_url)
+                t_org = cols[1] if len(cols) > 1 and not ('http' in cols[1]) else None
+                t_desc = ' '.join(cols[2:]) if len(cols) > 2 else f"{t_title} course curriculum."
+                courses.append({
+                    "type": "course",
+                    "title": t_title,
+                    "organization": t_org or "University",
+                    "direct_url": t_url,
+                    "description": t_desc,
+                    "section": folder_name,
+                    "suggested_collection": folder_name,
+                    "taught_skills": extract_skills_from_text(f"{t_title} {t_desc} {folder_name}"),
+                    "required_skills": [],
+                    "confidence": 1.0,
+                    "verification_status": "verified",
+                    "notes": f"Imported from {source_title or 'curated list'}"
+                })
 
     return courses
 

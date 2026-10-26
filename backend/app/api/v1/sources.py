@@ -32,13 +32,17 @@ async def submit_url(
     ).first()
 
     if existing_source:
-        # Reprocess or return existing
-        if existing_source.extraction_status == "completed":
-            res_count = db.query(Resource).filter(Resource.source_id == existing_source.id).count()
+        res_count = db.query(Resource).filter(Resource.source_id == existing_source.id).count()
+        # If successfully completed with extracted items and not forcing refresh, return existing
+        if existing_source.extraction_status == "completed" and res_count > 0 and not getattr(payload, "force_refresh", False):
             out = SourceOut.from_orm(existing_source)
             out.resource_count = res_count
             return out
+        # Otherwise (failed, 0 resources extracted, or force_refresh), reprocess to create resources & folders
         source = existing_source
+        source.extraction_status = "pending"
+        source.error_message = None
+        db.commit()
     else:
         source = Source(
             user_id=current_user.id,

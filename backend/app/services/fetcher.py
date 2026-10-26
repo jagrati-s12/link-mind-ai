@@ -133,16 +133,48 @@ async def try_fetch_github_raw_readme(url: str, client: httpx.AsyncClient) -> Op
     (e.g. github.com/prakhar1989/awesome-courses) to bypass GitHub HTML UI chrome
     and deliver pristine course lists.
     """
+    # 1. Direct raw.githubusercontent.com URLs
+    raw_match = re.search(r'raw\.githubusercontent\.com/([^/]+)/([^/]+)/([^/]+)/(.*)', url, re.I)
+    if raw_match:
+        owner, repo, branch, path = raw_match.groups()
+        repo = re.sub(r'\.git$', '', repo, flags=re.I)
+        try:
+            resp = await client.get(url)
+            if resp.status_code == 200 and len(resp.text) > 100:
+                raw_text = resp.text
+                title = f"{owner}/{repo}"
+                h_match = re.search(r'^#+\s+([^\n]+)', raw_text, re.M)
+                if h_match:
+                    clean_h = re.sub(r'\[.*?\]\(.*?\)|<.*?>|[#*`]', '', h_match.group(1)).strip()
+                    if clean_h:
+                        title = f"{clean_h} ({owner}/{repo})"
+                c_hash = hashlib.sha256(raw_text.encode("utf-8")).hexdigest()
+                return FetchResult(content=raw_text, title=title, mime_type="text/markdown", content_hash=c_hash)
+        except Exception:
+            pass
+
+    # 2. Standard github.com repository or blob URLs
     gh_match = re.search(r'github\.com/([^/]+)/([^/?#]+)', url, re.I)
     if not gh_match:
         return None
     owner, repo = gh_match.group(1), gh_match.group(2)
+    repo = re.sub(r'\.git$', '', repo, flags=re.I)
     if owner.lower() in ("features", "topics", "trending", "collections", "organizations", "login", "signup", "settings"):
         return None
 
-    # Try raw HEAD README.md, then main, then master
+    # Check if a specific markdown file was targeted, e.g. /blob/main/path/to/file.md
+    blob_match = re.search(r'github\.com/[^/]+/[^/]+/blob/([^/]+)/(.*)', url, re.I)
+    targets = []
+    if blob_match:
+        branch, file_path = blob_match.groups()
+        targets.append(f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{file_path}")
+
+    # Standard README filenames and branches
     for branch in ("HEAD", "main", "master"):
-        raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/README.md"
+        for filename in ("README.md", "readme.md", "README", "Readme.md"):
+            targets.append(f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{filename}")
+
+    for raw_url in targets:
         try:
             resp = await client.get(raw_url)
             if resp.status_code == 200 and len(resp.text) > 100:

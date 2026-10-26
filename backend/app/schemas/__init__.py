@@ -110,6 +110,7 @@ class ResumeOut(BaseModel):
 # ----------------- Source -----------------
 class SourceCreateUrl(BaseModel):
     url: str
+    force_refresh: Optional[bool] = False
 
 class SourceBulkCreate(BaseModel):
     urls: List[str]

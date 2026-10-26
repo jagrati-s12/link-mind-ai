@@ -5,7 +5,7 @@ from sqlalchemy import or_
 from app.core.db import get_db
 from app.models import (
     User, Resource, Collection, Recommendation, Application,
-    UserProfile, Resume, UserSkill, ResourceRelation
+    UserProfile, Resume, UserSkill, ResourceRelation, CourseProgress, ListingFeedback
 )
 from app.schemas import (
     ResourceOut, ResourceCreate, ResourceUpdate,
@@ -253,6 +253,13 @@ def delete_resource(
     ).first()
     if not res:
         raise HTTPException(status_code=404, detail="Resource not found.")
+
+    # Cleanly remove secondary associations & dependent child rows
+    db.query(CourseProgress).filter(CourseProgress.resource_id == resource_id).delete(synchronize_session=False)
+    db.query(Application).filter(Application.resource_id == resource_id).delete(synchronize_session=False)
+    db.query(Recommendation).filter(Recommendation.resource_id == resource_id).delete(synchronize_session=False)
+    db.query(ListingFeedback).filter(ListingFeedback.resource_id == resource_id).delete(synchronize_session=False)
+    res.collections.clear()
 
     db.delete(res)
     db.commit()

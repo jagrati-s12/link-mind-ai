@@ -1,7 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ExternalLink, Calendar, MapPin, Building, Sparkles, Folder, ArrowRight } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { ExternalLink, Calendar, MapPin, Building, Sparkles, Folder, ArrowRight, Trash2 } from 'lucide-react';
 import { Resource } from '../types';
+import { api } from '../services/api';
 import { ListingFeedbackWidget } from './ListingFeedbackWidget';
 
 interface ResourceCardProps {
@@ -10,6 +12,23 @@ interface ResourceCardProps {
 }
 
 export const ResourceCard: React.FC<ResourceCardProps> = ({ resource }) => {
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.deleteResource(resource.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+    }
+  });
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.confirm(`Delete "${resource.title}" from your library?`)) {
+      deleteMutation.mutate();
+    }
+  };
+
   const isCourse = resource.type === 'course' || resource.type === 'certification';
   const isVideo = Boolean(
     resource.direct_url && (resource.direct_url.includes('youtube.com') || resource.direct_url.includes('youtu.be'))
@@ -187,6 +206,14 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ resource }) => {
               <ExternalLink className="w-2.5 h-2.5" />
             </a>
           )}
+
+          <button
+            onClick={handleDelete}
+            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
+            title="Delete from library"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     </div>

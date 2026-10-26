@@ -69,9 +69,18 @@ export const ResourceDetail: React.FC = () => {
   const deleteResourceMutation = useMutation({
     mutationFn: () => api.deleteResource(resourceId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['resources-list'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-      navigate('/resources');
+      queryClient.invalidateQueries();
+      if (isCourse) {
+        navigate('/courses');
+      } else if (resource?.type === 'job') {
+        navigate('/jobs');
+      } else if (resource?.type === 'internship') {
+        navigate('/internships');
+      } else if (resource?.type === 'hackathon') {
+        navigate('/hackathons');
+      } else {
+        navigate('/resources');
+      }
     }
   });
 

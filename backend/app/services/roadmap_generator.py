@@ -152,7 +152,12 @@ async def generate_personalized_roadmap(db: Session, user_id: int, goal_title: s
         sub_goals = [s.strip() for s in goal_title.split(",") if s.strip()]
 
     if len(sub_goals) >= 2:
-        clean_track_names = [re.sub(r'\(.*?\)', '', g).strip().title() for g in sub_goals]
+        def _clean_track_name(g: str) -> str:
+            clean = re.sub(r'(?i)^(hybrid\s+)?multi[- ]track:\s*', '', g)
+            clean = re.sub(r'\(.*?\)', '', clean)
+            return clean.strip().title()
+
+        clean_track_names = [_clean_track_name(g) for g in sub_goals]
         resolved_title = f"Hybrid Multi-Track: {' + '.join(clean_track_names)}"
         resolved_role = target_role or f"Specialist ({' / '.join(clean_track_names[:2])})"
         track_str = ", ".join(clean_track_names)
@@ -196,59 +201,71 @@ async def generate_personalized_roadmap(db: Session, user_id: int, goal_title: s
         modules = [
             {
                 "order": 1,
-                "title": "1. Synchronized Foundations & Study Cadence",
-                "description": f"Establish an interleaved daily cadence to advance both {t1} and {t2} simultaneously on the same timeline.",
+                "title": f"1. Foundations: {t1} & {t2} Core Primitives",
+                "description": f"Master the computational complexity, syntax fundamentals, and runtime architectures of both {t1} and {t2}.",
                 "is_multitrack": True,
                 "tracks": [t1, t2] + ([t3] if t3 else []),
                 "topics": [
                     {
-                        "name": f"Daily Time-Split: Morning 45m ({t1}) + Evening 90m ({t2})",
-                        "importance": "Must Know",
-                        "completed": False,
-                        "track": "Cadence",
-                        "description": "Split high-energy morning hours for algorithmic problem solving and sustained evening focus for project architecture.",
-                        "references": [
-                            {"title": "Pomodoro & Deep Work Technique", "url": "https://todoist.com/productivity-methods/pomodoro-technique", "type": "article"}
-                        ]
-                    },
-                    {
-                        "name": "Multi-Repo Git Workspace & Monorepo Setup",
-                        "importance": "Must Know",
-                        "completed": False,
-                        "track": "Environment",
-                        "description": "Configure unified environment, VS Code workspaces, Docker engines, and testing harnesses.",
-                        "references": [
-                            {"title": "VS Code Multi-root Workspaces Guide", "url": "https://code.visualstudio.com/docs/editor/multi-root-workspaces", "type": "doc"}
-                        ]
-                    },
-                    {
-                        "name": f"[{t1}] Core Foundations, Toolchain & Syntax Primitives",
+                        "name": f"[{t1}] Big-O Time & Space Complexity Analysis",
                         "importance": "Must Know",
                         "completed": False,
                         "track": t1,
-                        "description": f"Master syntax, memory model, and algorithmic runtime analysis in {t1}.",
+                        "description": "Analyze asymptotic upper and lower bounds, memory stack allocation, and runtime trade-offs.",
                         "references": [
-                            {"title": f"{t1} Official Documentation & Specs", "url": "https://roadmap.sh", "type": "doc"}
+                            {"title": "Big-O Cheat Sheet", "url": "https://www.bigocheatsheet.com/", "type": "tool"},
+                            {"title": "MIT 6.006 Complexity Foundations", "url": "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/", "type": "course"}
                         ]
                     },
                     {
-                        "name": f"[{t2}] Architecture Foundations, Runtime & Provider APIs",
+                        "name": f"[{t2}] Foundation Model Architectures & API Inference",
                         "importance": "Must Know",
                         "completed": False,
                         "track": t2,
-                        "description": f"Set up provider keys, virtual environments, base scaffolding, and hello-world pipeline for {t2}.",
+                        "description": "Differentiate foundation model families, understand pricing economics, and establish secure client connections.",
                         "references": [
-                            {"title": f"{t2} Quickstart & Reference Guide", "url": "https://roadmap.sh", "type": "doc"}
+                            {"title": "Anthropic API Architecture Overview", "url": "https://docs.anthropic.com/", "type": "doc"},
+                            {"title": "OpenAI API Reference", "url": "https://platform.openai.com/docs/api-reference", "type": "doc"}
                         ]
                     },
                     {
-                        "name": "Interleaved Spaced Repetition Cadence",
+                        "name": f"[{t1}] Memory Layout, Pointers & Array Primitives",
+                        "importance": "Must Know",
+                        "completed": False,
+                        "track": t1,
+                        "description": "Contiguous memory allocations, dynamic sizing amortized cost, and indexing fundamentals.",
+                        "references": [
+                            {"title": "NeetCode Dynamic Array Breakdown", "url": "https://neetcode.io/roadmap", "type": "practice"}
+                        ]
+                    },
+                    {
+                        "name": f"[{t2}] Tokenization, Context Windows & Parameter Tuning",
+                        "importance": "Must Know",
+                        "completed": False,
+                        "track": t2,
+                        "description": "Token counters, context limits, temperature, top-p sampling, and stop sequences.",
+                        "references": [
+                            {"title": "OpenAI Interactive Tokenizer", "url": "https://platform.openai.com/tokenizer", "type": "tool"}
+                        ]
+                    },
+                    {
+                        "name": f"[{t1}] Recursion Trees & Recurrence Relations",
                         "importance": "Recommended",
                         "completed": False,
-                        "track": "Strategy",
-                        "description": "Use flashcards and active recall drills to prevent cognitive interference between the two tracks.",
+                        "track": t1,
+                        "description": "Call stack frames, base cases, and divide-and-conquer recurrence formulas.",
                         "references": [
-                            {"title": "Anki Spaced Repetition Manual", "url": "https://docs.ankiweb.net/", "type": "guide"}
+                            {"title": "Recursion Trees & Master Theorem", "url": "https://en.wikipedia.org/wiki/Master_theorem_(analysis_of_algorithms)", "type": "article"}
+                        ]
+                    },
+                    {
+                        "name": f"[{t2}] Closed vs Open-Source Models (GPT-4o, Claude, Llama 3)",
+                        "importance": "Recommended",
+                        "completed": False,
+                        "track": t2,
+                        "description": "Evaluating proprietary cloud endpoints vs self-hosted quantized models via Ollama/vLLM.",
+                        "references": [
+                            {"title": "Hugging Face Open LLM Leaderboard", "url": "https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard", "type": "tool"}
                         ]
                     }
                 ],

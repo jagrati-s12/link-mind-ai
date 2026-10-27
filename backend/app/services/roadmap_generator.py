@@ -313,7 +313,214 @@ async def generate_personalized_roadmap(db: Session, user_id: int, goal_title: s
         }
 
     # -------------------------------------------------------------
-    # 3. DYNAMIC AI LLM GENERATOR (For custom user queries)
+    # 3. CORE BACKEND SDE (roadmap.sh/backend)
+    # -------------------------------------------------------------
+    if any(term in goal_lower for term in ["backend", "server", "api engineer", "distributed system"]):
+        resolved_title = "Core Backend SDE Roadmap (roadmap.sh/backend)" if goal_lower in ("backend", "core backend sde", "backend engineer") else goal_title
+        resolved_role = target_role or "Core Backend Software Engineer"
+
+        modules = [
+            {
+                "order": 1,
+                "title": "1. Language Mastery, Concurrency & Memory",
+                "description": "Deep-dive into a primary backend language (Python/Go/Java/C++). Master thread models, async event loops, memory layout, and garbage collection.",
+                "topics": [
+                    {"name": "Async I/O, Event Loops & Goroutines / Threads", "importance": "Must Know", "completed": False},
+                    {"name": "Memory Management & Pointer / Value Semantics", "importance": "Must Know", "completed": False},
+                    {"name": "Standard Library Networking & HTTP Client/Server", "importance": "Must Know", "completed": False},
+                    {"name": "Error Handling Patterns & Context Deadlines", "importance": "Must Know", "completed": False}
+                ],
+                "resources": [
+                    {"title": "roadmap.sh Backend Guide", "url": "https://roadmap.sh/backend", "type": "guide"}
+                ]
+            },
+            {
+                "order": 2,
+                "title": "2. Relational & Distributed Databases",
+                "description": "Design relational schemas with ACID guarantees, write optimized SQL, and tune indexes (B-Tree, Hash, GIN).",
+                "topics": [
+                    {"name": "PostgreSQL Schema Design & Normalization", "importance": "Must Know", "completed": False},
+                    {"name": "B-Tree Indexing, EXPLAIN ANALYZE & Query Plans", "importance": "Must Know", "completed": False},
+                    {"name": "ACID Properties & Transaction Isolation Levels", "importance": "Must Know", "completed": False},
+                    {"name": "Connection Pooling & Database Migrations (Alembic)", "importance": "Must Know", "completed": False},
+                    {"name": "NoSQL Tradeoffs: Document, Key-Value, Columnar", "importance": "Recommended", "completed": False}
+                ],
+                "resources": [
+                    {"title": "Use The Index, Luke (SQL Indexing Guide)", "url": "https://use-the-index-luke.com/", "type": "guide"}
+                ]
+            },
+            {
+                "order": 3,
+                "title": "3. API Architecture & Communication Protocols",
+                "description": "Engineer resilient APIs across REST, gRPC/Protobuf, and real-time WebSockets with strict input validation.",
+                "topics": [
+                    {"name": "RESTful API Standards & Idempotency", "importance": "Must Know", "completed": False},
+                    {"name": "gRPC & Protocol Buffers for Low-Latency RPCs", "importance": "Must Know", "completed": False},
+                    {"name": "WebSockets & Server-Sent Events (SSE)", "importance": "Recommended", "completed": False},
+                    {"name": "Authentication & Authorization (OAuth2, JWT, RBAC)", "importance": "Must Know", "completed": False}
+                ],
+                "resources": [
+                    {"title": "gRPC Official Documentation", "url": "https://grpc.io/docs/", "type": "docs"}
+                ]
+            },
+            {
+                "order": 4,
+                "title": "4. Caching & Asynchronous Message Queues",
+                "description": "Alleviate database hotspots with distributed caching tiers and decouple background workloads using event brokers.",
+                "topics": [
+                    {"name": "Redis In-Memory Caching Strategies (Cache-Aside, Write-Through)", "importance": "Must Know", "completed": False},
+                    {"name": "Cache Invalidation, Cache Stampede & TTL Policies", "importance": "Must Know", "completed": False},
+                    {"name": "Message Queues & Event Streaming (RabbitMQ, Kafka)", "importance": "Must Know", "completed": False},
+                    {"name": "At-Least-Once Delivery & Idempotent Consumer Design", "importance": "Advanced", "completed": False}
+                ],
+                "resources": [
+                    {"title": "Redis Official University", "url": "https://university.redis.io/", "type": "course"}
+                ]
+            },
+            {
+                "order": 5,
+                "title": "5. System Design & Distributed Scalability",
+                "description": "Architect high-availability systems with horizontal scaling, load balancing, circuit breakers, and database sharding.",
+                "topics": [
+                    {"name": "Horizontal Scaling & Layer 4/Layer 7 Load Balancing", "importance": "Must Know", "completed": False},
+                    {"name": "CAP Theorem & PACELC Tradeoffs", "importance": "Must Know", "completed": False},
+                    {"name": "Database Replication, Read Replicas & Sharding", "importance": "Must Know", "completed": False},
+                    {"name": "Rate Limiting Algorithms (Token Bucket, Leaky Bucket)", "importance": "Recommended", "completed": False},
+                    {"name": "Circuit Breakers, Retries & Exponential Backoff", "importance": "Recommended", "completed": False}
+                ],
+                "resources": [
+                    {"title": "System Design Primer", "url": "https://github.com/donnemartin/system-design-primer", "type": "guide"}
+                ]
+            }
+        ]
+
+        steps = []
+        for m in modules:
+            step_id = str(uuid.uuid4())[:8]
+            steps.append({
+                "id": step_id,
+                "title": m["title"],
+                "description": m["description"],
+                "topics": m["topics"],
+                "resources": m.get("resources", []),
+                "resource_ids": [c.id for c in saved_courses[:2]],
+                "skill_ids": [],
+                "order": m["order"],
+                "completed": False
+            })
+
+        return {
+            "goal_title": resolved_title,
+            "target_role": resolved_role,
+            "description": "Comprehensive Backend Engineering roadmap modeled after roadmap.sh/backend covering language internals, databases, API protocols, caching, message queues, and system design.",
+            "steps": steps
+        }
+
+    # -------------------------------------------------------------
+    # 4. CLOUD & DEVOPS (roadmap.sh/devops)
+    # -------------------------------------------------------------
+    if any(term in goal_lower for term in ["devops", "cloud", "kubernetes", "docker", "infrastructure", "sre"]):
+        resolved_title = "Cloud & DevOps Roadmap (roadmap.sh/devops)" if goal_lower in ("devops", "cloud", "cloud & devops") else goal_title
+        resolved_role = target_role or "DevOps / Site Reliability Engineer (SRE)"
+
+        modules = [
+            {
+                "order": 1,
+                "title": "1. Linux Internals, Networking & Scripting",
+                "description": "Master Linux system administration, process isolation, bash scripting, and core networking fundamentals.",
+                "topics": [
+                    {"name": "Linux Shell Scripting & CLI Automation", "importance": "Must Know", "completed": False},
+                    {"name": "Process Management, File Descriptors & Signals", "importance": "Must Know", "completed": False},
+                    {"name": "Networking: DNS, TCP/IP, OSI Layers, TLS Certificates", "importance": "Must Know", "completed": False},
+                    {"name": "SSH Key Management & Security Best Practices", "importance": "Must Know", "completed": False}
+                ],
+                "resources": [
+                    {"title": "roadmap.sh DevOps Guide", "url": "https://roadmap.sh/devops", "type": "guide"}
+                ]
+            },
+            {
+                "order": 2,
+                "title": "2. Containerization with Docker",
+                "description": "Package applications with lightweight containers, multi-stage builds, and secure non-root users.",
+                "topics": [
+                    {"name": "Container Runtimes, Namespaces & cgroups", "importance": "Must Know", "completed": False},
+                    {"name": "Optimized Multi-Stage Dockerfiles", "importance": "Must Know", "completed": False},
+                    {"name": "Docker Networking, Port Mapping & Volumes", "importance": "Must Know", "completed": False},
+                    {"name": "Docker Compose for Multi-Container Local Dev", "importance": "Must Know", "completed": False}
+                ],
+                "resources": [
+                    {"title": "Docker Official Documentation", "url": "https://docs.docker.com/", "type": "docs"}
+                ]
+            },
+            {
+                "order": 3,
+                "title": "3. Container Orchestration with Kubernetes (K8s)",
+                "description": "Deploy, scale, and manage containerized applications with declarative Kubernetes manifests.",
+                "topics": [
+                    {"name": "Kubernetes Architecture (Control Plane vs Worker Nodes)", "importance": "Must Know", "completed": False},
+                    {"name": "Pods, Deployments, ReplicaSets & Rollouts", "importance": "Must Know", "completed": False},
+                    {"name": "Services (ClusterIP, NodePort, LoadBalancer) & Ingress", "importance": "Must Know", "completed": False},
+                    {"name": "ConfigMaps, Secrets & PersistentVolumeClaims", "importance": "Must Know", "completed": False},
+                    {"name": "Helm Package Manager for Kubernetes Deployments", "importance": "Recommended", "completed": False}
+                ],
+                "resources": [
+                    {"title": "Kubernetes Official Tutorials", "url": "https://kubernetes.io/docs/tutorials/", "type": "docs"}
+                ]
+            },
+            {
+                "order": 4,
+                "title": "4. CI/CD Automation & Infrastructure as Code (IaC)",
+                "description": "Automate build, test, and deployment workflows with GitHub Actions and provision reproducible cloud infrastructure via Terraform.",
+                "topics": [
+                    {"name": "GitHub Actions CI/CD Pipeline Workflows", "importance": "Must Know", "completed": False},
+                    {"name": "Automated Linting, Unit Testing & Security Scanning", "importance": "Must Know", "completed": False},
+                    {"name": "Terraform HCL Syntax, Providers & State Management", "importance": "Must Know", "completed": False},
+                    {"name": "Zero-Downtime Deployments (Blue-Green, Canary)", "importance": "Recommended", "completed": False}
+                ],
+                "resources": [
+                    {"title": "HashiCorp Terraform Tutorials", "url": "https://developer.hashicorp.com/terraform/tutorials", "type": "guide"}
+                ]
+            },
+            {
+                "order": 5,
+                "title": "5. Observability, Monitoring & Reliability",
+                "description": "Collect the 3 pillars of observability (Metrics, Logs, Traces) to monitor uptime and troubleshoot incidents.",
+                "topics": [
+                    {"name": "Prometheus Metrics Scraping & Alertmanager", "importance": "Must Know", "completed": False},
+                    {"name": "Grafana Dashboard Creation & Visualization", "importance": "Must Know", "completed": False},
+                    {"name": "Centralized Log Aggregation (ELK / Loki)", "importance": "Must Know", "completed": False},
+                    {"name": "Distributed Tracing with OpenTelemetry", "importance": "Advanced", "completed": False}
+                ],
+                "resources": [
+                    {"title": "Prometheus Official Guide", "url": "https://prometheus.io/docs/introduction/overview/", "type": "docs"}
+                ]
+            }
+        ]
+
+        steps = []
+        for m in modules:
+            step_id = str(uuid.uuid4())[:8]
+            steps.append({
+                "id": step_id,
+                "title": m["title"],
+                "description": m["description"],
+                "topics": m["topics"],
+                "resources": m.get("resources", []),
+                "resource_ids": [c.id for c in saved_courses[:2]],
+                "skill_ids": [],
+                "order": m["order"],
+                "completed": False
+            })
+
+        return {
+            "goal_title": resolved_title,
+            "target_role": resolved_role,
+            "description": "Comprehensive Cloud & DevOps roadmap modeled after roadmap.sh/devops covering Linux, Docker, Kubernetes, CI/CD, Terraform, and observability.",
+            "steps": steps
+        }
+
+    # -------------------------------------------------------------
+    # 5. DYNAMIC AI LLM GENERATOR (For custom user queries)
     # -------------------------------------------------------------
     system_prompt = (
         "You are an expert curriculum developer and technical architect creating structured roadmaps modeled after roadmap.sh.\n"

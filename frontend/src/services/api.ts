@@ -180,6 +180,7 @@ export const api = {
 
   // Roadmaps
   getRoadmaps: () => fetchJson<Roadmap[]>(`${API_BASE}/roadmaps`),
+  getRoadmapCatalog: () => fetchJson<any[]>(`${API_BASE}/roadmaps/catalog`),
   generateRoadmap: (goal_title: string, target_role?: string, goals?: string[]) =>
     fetchJson<Roadmap>(`${API_BASE}/roadmaps/generate`, {
       method: 'POST',
@@ -192,6 +193,20 @@ export const api = {
   toggleRoadmapSubtopic: (roadmapId: number, stepId: string, topicIdx: number) =>
     fetchJson<Roadmap>(`${API_BASE}/roadmaps/${roadmapId}/steps/${stepId}/topics/${topicIdx}/toggle`, {
       method: 'POST'
+    }),
+  addRoadmapTopicReference: (
+    roadmapId: number,
+    stepId: string,
+    topicIdx: number,
+    payload: { title: string; url: string; type?: string; notes?: string }
+  ) =>
+    fetchJson<Roadmap>(`${API_BASE}/roadmaps/${roadmapId}/steps/${stepId}/topics/${topicIdx}/references`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
+  deleteRoadmapTopicReference: (roadmapId: number, stepId: string, topicIdx: number, refIdx: number) =>
+    fetchJson<Roadmap>(`${API_BASE}/roadmaps/${roadmapId}/steps/${stepId}/topics/${topicIdx}/references/${refIdx}`, {
+      method: 'DELETE'
     }),
   deleteRoadmap: (id: number) => fetchJson<any>(`${API_BASE}/roadmaps/${id}`, {
     method: 'DELETE'

@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
   onOpenCapture: () => void;
+  isSidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ onOpenCapture }) => {

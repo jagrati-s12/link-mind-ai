@@ -9,34 +9,59 @@ import {
   CheckCircle2,
   CheckSquare,
   Square,
-  Flame,
-  ArrowRight,
-  Shuffle,
-  Check,
+  Clock,
+  Video,
+  Play,
+  Layers,
+  Network,
+  ListChecks,
   Plus,
-  GitMerge,
-  SplitSquareVertical,
-  Laptop,
-  Clock
+  X,
+  FileText,
+  Link2,
+  Globe,
+  Tag
 } from 'lucide-react';
 import { api } from '../services/api';
 import { EmptyState } from '../components/EmptyState';
-import { RoadmapStep, RoadmapTopic, Roadmap } from '../types';
+import { RoadmapStep, RoadmapTopic, Roadmap, RoadmapReference, RoadmapCatalogItem } from '../types';
 
 export const Roadmaps: React.FC = () => {
   const queryClient = useQueryClient();
   const [goalInput, setGoalInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatorMode, setGeneratorMode] = useState<'single' | 'hybrid'>('hybrid');
+  const [viewMode, setViewMode] = useState<'visual' | 'timeline'>('visual');
   const [selectedTracks, setSelectedTracks] = useState<string[]>([
     'Data Structures & Algorithms',
     'AI Engineer (roadmap.sh/ai)'
   ]);
   const [customTrackInput, setCustomTrackInput] = useState('');
 
+  // Subtopic Inspector Drawer / Modal State
+  const [inspectorTopic, setInspectorTopic] = useState<{
+    roadmapId: number;
+    stepId: string;
+    stepTitle: string;
+    topicIdx: number;
+    topic: RoadmapTopic;
+  } | null>(null);
+
+  // New Reference Form State
+  const [newRefTitle, setNewRefTitle] = useState('');
+  const [newRefUrl, setNewRefUrl] = useState('');
+  const [newRefType, setNewRefType] = useState('doc');
+  const [newRefNotes, setNewRefNotes] = useState('');
+  const [isAddingRef, setIsAddingRef] = useState(false);
+
   const { data: roadmaps, isLoading } = useQuery({
     queryKey: ['roadmaps-list'],
     queryFn: api.getRoadmaps
+  });
+
+  const { data: catalog } = useQuery({
+    queryKey: ['roadmap-catalog'],
+    queryFn: api.getRoadmapCatalog
   });
 
   const generateMutation = useMutation({
@@ -60,8 +85,74 @@ export const Roadmaps: React.FC = () => {
   const toggleTopicMutation = useMutation({
     mutationFn: ({ roadmapId, stepId, topicIdx }: { roadmapId: number; stepId: string; topicIdx: number }) =>
       api.toggleRoadmapSubtopic(roadmapId, stepId, topicIdx),
-    onSuccess: () => {
+    onSuccess: (updatedRoadmap) => {
       queryClient.invalidateQueries({ queryKey: ['roadmaps-list'] });
+      // Update inspector topic if open
+      if (inspectorTopic) {
+        const step = updatedRoadmap.steps.find((s) => s.id === inspectorTopic.stepId);
+        if (step && step.topics && step.topics[inspectorTopic.topicIdx]) {
+          setInspectorTopic({
+            ...inspectorTopic,
+            topic: step.topics[inspectorTopic.topicIdx]
+          });
+        }
+      }
+    }
+  });
+
+  const addReferenceMutation = useMutation({
+    mutationFn: ({
+      roadmapId,
+      stepId,
+      topicIdx,
+      payload
+    }: {
+      roadmapId: number;
+      stepId: string;
+      topicIdx: number;
+      payload: { title: string; url: string; type?: string; notes?: string };
+    }) => api.addRoadmapTopicReference(roadmapId, stepId, topicIdx, payload),
+    onSuccess: (updatedRoadmap) => {
+      queryClient.invalidateQueries({ queryKey: ['roadmaps-list'] });
+      if (inspectorTopic) {
+        const step = updatedRoadmap.steps.find((s) => s.id === inspectorTopic.stepId);
+        if (step && step.topics && step.topics[inspectorTopic.topicIdx]) {
+          setInspectorTopic({
+            ...inspectorTopic,
+            topic: step.topics[inspectorTopic.topicIdx]
+          });
+        }
+      }
+      setNewRefTitle('');
+      setNewRefUrl('');
+      setNewRefNotes('');
+      setIsAddingRef(false);
+    }
+  });
+
+  const deleteReferenceMutation = useMutation({
+    mutationFn: ({
+      roadmapId,
+      stepId,
+      topicIdx,
+      refIdx
+    }: {
+      roadmapId: number;
+      stepId: string;
+      topicIdx: number;
+      refIdx: number;
+    }) => api.deleteRoadmapTopicReference(roadmapId, stepId, topicIdx, refIdx),
+    onSuccess: (updatedRoadmap) => {
+      queryClient.invalidateQueries({ queryKey: ['roadmaps-list'] });
+      if (inspectorTopic) {
+        const step = updatedRoadmap.steps.find((s) => s.id === inspectorTopic.stepId);
+        if (step && step.topics && step.topics[inspectorTopic.topicIdx]) {
+          setInspectorTopic({
+            ...inspectorTopic,
+            topic: step.topics[inspectorTopic.topicIdx]
+          });
+        }
+      }
     }
   });
 
@@ -88,7 +179,7 @@ export const Roadmaps: React.FC = () => {
   const handleToggleTrack = (track: string) => {
     if (selectedTracks.includes(track)) {
       if (selectedTracks.length > 1) {
-        setSelectedTracks(selectedTracks.filter(t => t !== track));
+        setSelectedTracks(selectedTracks.filter((t) => t !== track));
       }
     } else {
       if (selectedTracks.length < 3) {
@@ -114,6 +205,22 @@ export const Roadmaps: React.FC = () => {
     }
   };
 
+  const handleSaveReference = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inspectorTopic || !newRefTitle.trim() || !newRefUrl.trim()) return;
+    addReferenceMutation.mutate({
+      roadmapId: inspectorTopic.roadmapId,
+      stepId: inspectorTopic.stepId,
+      topicIdx: inspectorTopic.topicIdx,
+      payload: {
+        title: newRefTitle.trim(),
+        url: newRefUrl.trim(),
+        type: newRefType,
+        notes: newRefNotes.trim()
+      }
+    });
+  };
+
   const getImportanceBadge = (importance?: string) => {
     switch (importance) {
       case 'Must Know':
@@ -125,57 +232,185 @@ export const Roadmaps: React.FC = () => {
     }
   };
 
+  // Fallback catalog presets if API hasn't loaded yet
+  const catalogPresets: RoadmapCatalogItem[] = catalog || [
+    {
+      id: 'ai-engineer',
+      title: 'AI Engineer (roadmap.sh/ai)',
+      category: 'AI & Machine Learning',
+      badge: 'roadmap.sh/ai',
+      target_role: 'AI Engineer / Generative AI Specialist',
+      description: 'Pre-trained models, prompt engineering, vector databases, RAG pipelines, and autonomous agent loops.',
+      modules_count: 6,
+      popular_pair: 'Data Structures & Algorithms',
+      icon: 'bot'
+    },
+    {
+      id: 'dsa',
+      title: 'Data Structures & Algorithms',
+      category: 'Computer Science',
+      badge: 'roadmap.sh/dsa',
+      target_role: 'Software Engineer (Algorithms & Problem Solving)',
+      description: 'Algorithmic complexity, linear DSA, trees, graphs, dynamic programming, and NeetCode 150 patterns.',
+      modules_count: 7,
+      popular_pair: 'AI Engineer',
+      icon: 'binary'
+    },
+    {
+      id: 'backend',
+      title: 'Backend Developer',
+      category: 'Web Development',
+      badge: 'roadmap.sh/backend',
+      target_role: 'Core Backend Software Engineer',
+      description: 'Language concurrency, relational databases, REST & gRPC, Redis caching, message queues, and system design.',
+      modules_count: 6,
+      popular_pair: 'DevOps & Cloud',
+      icon: 'server'
+    },
+    {
+      id: 'frontend',
+      title: 'Frontend Developer',
+      category: 'Web Development',
+      badge: 'roadmap.sh/frontend',
+      target_role: 'Modern Frontend Software Engineer',
+      description: 'Modern HTML/CSS, TypeScript, React ecosystem, client caching, and Core Web Vitals performance.',
+      modules_count: 6,
+      popular_pair: 'Backend Developer',
+      icon: 'layout'
+    },
+    {
+      id: 'devops',
+      title: 'DevOps & Cloud',
+      category: 'Cloud & Infrastructure',
+      badge: 'roadmap.sh/devops',
+      target_role: 'DevOps / Site Reliability Engineer',
+      description: 'Linux systems, Docker containers, Kubernetes orchestration, CI/CD pipelines, and Terraform IaC.',
+      modules_count: 5,
+      popular_pair: 'Backend Developer',
+      icon: 'cloud'
+    }
+  ];
+
   return (
-    <div className="space-y-8 max-w-5xl mx-auto animate-fade-in pb-16">
+    <div className="space-y-8 max-w-6xl mx-auto animate-fade-in pb-16">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2">
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-300 border border-brand-200/60 dark:border-brand-800/60">
-              Interactive Execution Paths
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800/60 flex items-center gap-1">
+              <Network className="w-3 h-3" />
+              roadmap.sh Visual Architecture
             </span>
           </div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white mt-1.5">
-            Personalized Career Roadmaps
+            Interactive Career Roadmaps
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
-            Pursue single careers or synchronize 2–3 career tracks on the exact same timeline with interleaved milestones, side-by-side competency checks, and unified bridge capstones.
+            Visual node-and-branch learning maps modeled after <strong className="font-semibold text-slate-700 dark:text-slate-200">roadmap.sh</strong>. Every subtopic includes curated reference links, video playlists, and the ability to attach your own learning materials.
           </p>
+        </div>
+
+        {/* Global View Switcher */}
+        <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+          <button
+            onClick={() => setViewMode('visual')}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              viewMode === 'visual'
+                ? 'bg-amber-400 text-black shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Network className="w-3.5 h-3.5" />
+            <span>Visual Tree Graph</span>
+          </button>
+          <button
+            onClick={() => setViewMode('timeline')}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              viewMode === 'timeline'
+                ? 'bg-brand-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <ListChecks className="w-3.5 h-3.5" />
+            <span>Sequential Milestones</span>
+          </button>
         </div>
       </div>
 
-      {/* Generator Box with Dual-Career / Single Mode */}
-      <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+      {/* 1-Click Popular Roadmaps Catalog Shelf */}
+      <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <span className="p-1.5 rounded-xl bg-amber-100 dark:bg-amber-950/40 text-amber-600 border border-amber-300 dark:border-amber-800">
+              <Sparkles className="w-4 h-4" />
+            </span>
+            <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+              1-Click Pre-Scraped roadmap.sh Tracks
+            </span>
+          </div>
+          <span className="text-[11px] text-slate-400">Click any card to instantly generate with video playlists</span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 pt-1">
+          {catalogPresets.slice(0, 5).map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => handleQuickGoal(cat.title)}
+              disabled={isGenerating}
+              className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-amber-400 dark:hover:border-amber-500 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-amber-50/30 dark:hover:bg-amber-950/20 text-left transition-all group flex flex-col justify-between"
+            >
+              <div>
+                <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 mb-1.5">
+                  {cat.badge}
+                </span>
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors line-clamp-1">
+                  {cat.title.replace(' (roadmap.sh/ai)', '')}
+                </h4>
+                <p className="text-[10px] text-slate-400 line-clamp-2 mt-1">
+                  {cat.description}
+                </p>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                <span>{cat.modules_count} Modules</span>
+                <span className="group-hover:translate-x-0.5 transition-transform">&rarr;</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Generator / Multi-Track Synthesis Box */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 flex items-center space-x-1.5">
-              <GitMerge className="w-4 h-4" />
-              <span>Multi-Career & Hybrid Roadmap Engine</span>
-            </span>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
-              {generatorMode === 'hybrid' ? 'Pursue 2 Careers on the Same Timeline' : 'What do you want to learn?'}
-            </h2>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+              <Layers className="w-5 h-5 text-amber-500" />
+              <span>Customize Single or Dual-Career Roadmap</span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Synchronize two careers side-by-side or generate a dedicated path for any role or technology.
+            </p>
           </div>
 
-          {/* Mode Switch Pills */}
-          <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl self-start sm:self-auto text-xs font-medium">
+          <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
             <button
+              type="button"
               onClick={() => setGeneratorMode('hybrid')}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 generatorMode === 'hybrid'
-                  ? 'bg-brand-600 text-white shadow-xs font-bold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <SplitSquareVertical className="w-3.5 h-3.5" />
-              <span>Dual-Career Timeline (Method 1)</span>
+              Dual-Career Timeline
             </button>
             <button
+              type="button"
               onClick={() => setGeneratorMode('single')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 generatorMode === 'single'
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Single Career
@@ -183,226 +418,124 @@ export const Roadmaps: React.FC = () => {
           </div>
         </div>
 
-        {/* Mode A: Single Goal */}
-        {generatorMode === 'single' ? (
+        {generatorMode === 'hybrid' ? (
           <div className="space-y-4">
-            <form onSubmit={handleGenerate} className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="text"
-                required
-                value={goalInput}
-                onChange={(e) => setGoalInput(e.target.value)}
-                placeholder="e.g. AI Engineer (roadmap.sh/ai), Data Structures & Algorithms, Backend SDE..."
-                className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
-              />
-              <button
-                type="submit"
-                disabled={isGenerating || !goalInput.trim()}
-                className="flex items-center justify-center space-x-1.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-medium text-xs px-5 py-2.5 rounded-xl shadow-sm whitespace-nowrap transition-colors"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{isGenerating ? 'Synthesizing...' : 'Generate Roadmap'}</span>
-              </button>
-            </form>
-
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-[11px] text-slate-400">Popular single roadmaps:</span>
+            <div className="flex flex-wrap gap-2">
               {[
-                'AI Engineer (roadmap.sh/ai)',
                 'Data Structures & Algorithms',
-                'Core Backend SDE',
-                'Full Stack Developer',
-                'Cloud & DevOps'
-              ].map((g) => (
-                <button
-                  key={g}
-                  onClick={() => handleQuickGoal(g)}
-                  className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-brand-50 dark:hover:bg-brand-950/40 text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-colors"
-                >
-                  + {g}
-                </button>
-              ))}
+                'AI Engineer (roadmap.sh/ai)',
+                'Backend Developer',
+                'Frontend Developer',
+                'DevOps & Cloud',
+                'Python Developer'
+              ].map((track) => {
+                const isSelected = selectedTracks.includes(track);
+                return (
+                  <button
+                    key={track}
+                    type="button"
+                    onClick={() => handleToggleTrack(track)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-all flex items-center space-x-1.5 ${
+                      isSelected
+                        ? 'bg-amber-400 text-black border-black font-bold shadow-xs'
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-400'
+                    }`}
+                  >
+                    <span>{track}</span>
+                    {isSelected && <span className="text-black font-bold text-xs">✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-xs text-slate-500">
+                Selected for Synchronized Timeline: <strong className="text-slate-900 dark:text-white">{selectedTracks.join(' + ')}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={handleGenerateHybrid}
+                disabled={isGenerating || selectedTracks.length < 2}
+                className="px-5 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-500 text-black font-bold text-xs transition-colors shadow-sm disabled:opacity-50 flex items-center space-x-2"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-black" />
+                <span>{isGenerating ? 'Synthesizing...' : 'Generate Synchronized Roadmap'}</span>
+              </button>
             </div>
           </div>
         ) : (
-          /* Mode B: Dual-Career Synchronized Timeline (Method 1) */
-          <div className="space-y-4">
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 border border-blue-200/70 dark:border-blue-900/50 flex items-start space-x-3.5">
-              <div className="p-2 rounded-xl bg-blue-600 text-white shrink-0 mt-0.5">
-                <GitMerge className="w-4 h-4" />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                  Dual-Career Same-Timeline Architecture
-                </h4>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">
-                  Select two careers (e.g. <b>Data Structures & Algorithms</b> + <b>AI Engineer</b>). The engine merges both paths onto a <b>single synchronized timeline</b> so you work through matched milestones side-by-side each month and build one unified bridge capstone.
-                </p>
-              </div>
-            </div>
-
-            {/* Popular Career Pairs */}
-            <div className="space-y-2">
-              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                Quick 1-Click Dual-Career Pairs:
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  ['Data Structures & Algorithms', 'AI Engineer (roadmap.sh/ai)'],
-                  ['Core Backend SDE', 'Cloud & DevOps'],
-                  ['Full Stack Developer', 'AI Engineer (roadmap.sh/ai)'],
-                  ['Data Structures & Algorithms', 'Core Backend SDE']
-                ].map(([c1, c2], idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setSelectedTracks([c1, c2])}
-                    className={`text-[11px] font-medium px-3 py-1.5 rounded-xl border transition-all ${
-                      selectedTracks.includes(c1) && selectedTracks.includes(c2) && selectedTracks.length === 2
-                        ? 'bg-brand-600 text-white border-brand-600 font-bold shadow-xs'
-                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-brand-400'
-                    }`}
-                  >
-                    {c1.replace(/\s*\(.*?\)/, '')} + {c2.replace(/\s*\(.*?\)/, '')}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Select 2 Careers Grid */}
-            <div className="space-y-2 pt-1">
-              <div className="flex items-center justify-between text-xs font-medium">
-                <span className="text-slate-700 dark:text-slate-300">
-                  Or pick any 2 careers to sync:
-                </span>
-                <span className="text-brand-600 dark:text-brand-400 font-bold">
-                  {selectedTracks.length} / 2 selected
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                {[
-                  'Data Structures & Algorithms',
-                  'AI Engineer (roadmap.sh/ai)',
-                  'Core Backend SDE',
-                  'Cloud & DevOps',
-                  'Full Stack Developer'
-                ].map((track) => {
-                  const isChecked = selectedTracks.includes(track);
-                  return (
-                    <button
-                      key={track}
-                      type="button"
-                      onClick={() => handleToggleTrack(track)}
-                      className={`flex items-center justify-between p-3 rounded-xl border text-xs font-semibold text-left transition-all ${
-                        isChecked
-                          ? 'bg-brand-50 dark:bg-brand-950/60 border-brand-500 text-brand-900 dark:text-brand-100 shadow-xs'
-                          : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-                      }`}
-                    >
-                      <span className="truncate pr-1">{track}</span>
-                      <div className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 border ${
-                        isChecked ? 'bg-brand-600 border-brand-600 text-white' : 'border-slate-300 dark:border-slate-600'
-                      }`}>
-                        {isChecked && <Check className="w-3 h-3" />}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Custom Track Input */}
-            <form onSubmit={handleAddCustomTrack} className="flex gap-2 pt-1">
-              <input
-                type="text"
-                value={customTrackInput}
-                onChange={(e) => setCustomTrackInput(e.target.value)}
-                placeholder="Or type a custom career (e.g. Rust, Mobile iOS)..."
-                disabled={selectedTracks.length >= 3}
-                className="flex-1 px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500 disabled:opacity-50"
-              />
-              <button
-                type="submit"
-                disabled={!customTrackInput.trim() || selectedTracks.length >= 3}
-                className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center space-x-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Career</span>
-              </button>
-            </form>
-
-            {/* Combined Action Button */}
-            <div className="pt-2">
-              <button
-                onClick={handleGenerateHybrid}
-                disabled={isGenerating || selectedTracks.length < 2}
-                className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm px-7 py-3 rounded-2xl shadow-sm transition-all"
-              >
-                <GitMerge className="w-4 h-4" />
-                <span>
-                  {isGenerating
-                    ? 'Synthesizing Dual-Career Timeline...'
-                    : `Generate Synchronized Timeline (${selectedTracks.map(t => t.replace(/\s*\(.*?\)/, '')).join(' + ')})`}
-                </span>
-              </button>
-            </div>
-          </div>
+          <form onSubmit={handleGenerate} className="flex gap-2">
+            <input
+              type="text"
+              value={goalInput}
+              onChange={(e) => setGoalInput(e.target.value)}
+              placeholder="e.g. AI Engineer, Machine Learning, Rust Developer, or https://roadmap.sh/ai"
+              className="flex-1 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+            />
+            <button
+              type="submit"
+              disabled={isGenerating || !goalInput.trim()}
+              className="px-5 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-500 text-black font-bold text-xs transition-colors shadow-sm disabled:opacity-50 flex items-center space-x-2"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{isGenerating ? 'Generating...' : 'Generate Roadmap'}</span>
+            </button>
+          </form>
         )}
       </div>
 
-      {/* Roadmaps List (renders single or synchronized dual-career timeline) */}
-      {(!roadmaps || roadmaps.length === 0) ? (
+      {/* Roadmaps List & Render */}
+      {isLoading ? (
+        <div className="p-12 text-center text-slate-400 text-xs">Loading execution roadmaps...</div>
+      ) : !roadmaps || roadmaps.length === 0 ? (
         <EmptyState
+          title="No Roadmaps Created Yet"
+          description="Select an official track from the roadmap.sh shelf above or customize a dual-career synchronized path."
           icon={Map}
-          title="No career roadmaps generated yet"
-          description="Select 2 careers above to synthesize an integrated dual-career timeline, or generate a single career roadmap."
         />
       ) : (
         <div className="space-y-12">
-          {roadmaps.map((rm) => {
-            const allTopics = rm.steps.flatMap((s: RoadmapStep) => s.topics || []);
-            const hasTopics = allTopics.length > 0;
-            const completedCount = hasTopics
-              ? allTopics.filter((t: RoadmapTopic) => t.completed).length
-              : rm.steps.filter((s: RoadmapStep) => s.completed).length;
-            const totalCount = hasTopics ? allTopics.length : (rm.steps.length || 1);
-            const progressPct = Math.round((completedCount / (totalCount || 1)) * 100);
-            const isHybrid = rm.goal_title.includes('+') || rm.goal_title.toLowerCase().includes('hybrid');
+          {roadmaps.map((rm: Roadmap) => {
+            const allTopics = rm.steps.flatMap((s) => s.topics || []);
+            const completedTopics = allTopics.filter((t) => t.completed).length;
+            const totalCount = allTopics.length > 0 ? allTopics.length : rm.steps.length;
+            const completedCount = allTopics.length > 0 ? completedTopics : rm.steps.filter((s) => s.completed).length;
+            const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+            const isHybrid = rm.goal_title.startsWith('Hybrid Multi-Track:');
 
             return (
               <div
                 key={rm.id}
-                id={`roadmap-${rm.id}`}
-                className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 md:p-8 shadow-sm space-y-6 scroll-mt-20"
+                className="bg-white dark:bg-slate-900 rounded-3xl border-2 border-slate-200 dark:border-slate-800 shadow-sm p-6 sm:p-8 space-y-6"
               >
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
-                  <div className="space-y-1">
-                    <div className="flex items-center space-x-2">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                        isHybrid
-                          ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200/60 dark:border-purple-800/60'
-                          : 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border-blue-200/60 dark:border-blue-800/60'
-                      }`}>
-                        {isHybrid ? 'Dual-Career Synchronized Timeline' : (rm.target_role || 'Target Role')}
+                {/* Roadmap Header & Actions */}
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-yellow-300 dark:bg-yellow-400 text-black border border-black shadow-2xs">
+                        roadmap.sh verified
                       </span>
+                      {isHybrid && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
+                          Dual-Career Synchronized
+                        </span>
+                      )}
                     </div>
-                    <h3 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                    <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white">
                       {rm.goal_title}
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
                       {rm.description}
                     </p>
                   </div>
 
-                  <div className="flex items-center space-x-4 self-end sm:self-center">
+                  <div className="flex items-center space-x-3 shrink-0">
                     <div className="text-right">
-                      <span className="text-sm font-bold text-slate-900 dark:text-white">
-                        {progressPct}% Complete
+                      <span className="text-base font-black text-slate-900 dark:text-white">
+                        {progressPct}% Done
                       </span>
                       <span className="block text-[11px] text-slate-400">
-                        {completedCount} of {totalCount} {hasTopics ? 'competencies' : 'milestones'}
+                        {completedCount} of {totalCount} competencies
                       </span>
                     </div>
 
@@ -419,312 +552,681 @@ export const Roadmaps: React.FC = () => {
                 {/* Progress Bar */}
                 <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-300 ${
-                      isHybrid
-                        ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600'
-                        : 'bg-gradient-to-r from-brand-600 to-indigo-600'
-                    }`}
+                    className="h-full rounded-full bg-amber-400 transition-all duration-300"
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
 
-                {/* Connected Flow Timeline */}
-                <div className="relative pl-4 sm:pl-6 space-y-8 before:absolute before:left-[19px] sm:before:left-[27px] before:top-4 before:bottom-4 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
-                  {rm.steps.map((step: RoadmapStep, sIdx: number) => {
-                    const stepTopics = step.topics || [];
-                    const stepCompletedTopics = stepTopics.filter((t: RoadmapTopic) => t.completed).length;
-
-                    // Detect Dual-Career Split for this step
-                    const stepTracks = step.tracks || [];
-                    const t1 = stepTracks[0];
-                    const t2 = stepTracks[1];
-
-                    // Partition topics into Career 1, Career 2, and Shared/Capstone
-                    const t1Topics: { topic: RoadmapTopic; idx: number }[] = [];
-                    const t2Topics: { topic: RoadmapTopic; idx: number }[] = [];
-                    const sharedTopics: { topic: RoadmapTopic; idx: number }[] = [];
-
-                    stepTopics.forEach((topic: RoadmapTopic, tIdx: number) => {
-                      if (t1 && (topic.track === t1 || topic.name.startsWith(`[${t1}]`))) {
-                        t1Topics.push({ topic, idx: tIdx });
-                      } else if (t2 && (topic.track === t2 || topic.name.startsWith(`[${t2}]`))) {
-                        t2Topics.push({ topic, idx: tIdx });
-                      } else {
-                        sharedTopics.push({ topic, idx: tIdx });
-                      }
-                    });
-
-                    const hasDualSplit = t1 && t2 && (t1Topics.length > 0 || t2Topics.length > 0);
-
-                    return (
-                      <div key={step.id} className="relative flex items-start space-x-4 sm:space-x-5 group">
-                        {/* Milestone Number / Toggle Badge */}
-                        <button
-                          onClick={() => toggleStepMutation.mutate({ roadmapId: rm.id, stepId: step.id })}
-                          className={`relative z-10 w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center font-bold text-xs shrink-0 transition-all shadow-sm ${
-                            step.completed
-                              ? 'bg-emerald-600 text-white shadow-emerald-500/20'
-                              : 'bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-brand-500'
-                          }`}
-                          title={step.completed ? 'Mark Milestone Incomplete' : 'Mark Entire Milestone Complete'}
-                        >
-                          {step.completed ? (
-                            <CheckCircle2 className="w-5 h-5 text-white" />
-                          ) : (
-                            <span>{String(step.order || sIdx + 1).padStart(2, '0')}</span>
-                          )}
-                        </button>
-
-                        {/* Module Content Card */}
-                        <div
-                          className={`flex-1 p-5 sm:p-6 rounded-2xl border transition-all ${
-                            step.completed
-                              ? 'bg-slate-50/70 dark:bg-slate-800/30 border-slate-200/60 dark:border-slate-800/60'
-                              : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/80 shadow-sm'
-                          }`}
-                        >
-                          {/* Module Header */}
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <h4
-                              className={`text-sm sm:text-base font-bold ${
-                                step.completed
-                                  ? 'line-through text-slate-400 dark:text-slate-500'
-                                  : 'text-slate-900 dark:text-white'
-                              }`}
-                            >
-                              {step.title}
-                            </h4>
-
-                            {stepTopics.length > 0 && (
-                              <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
-                                {stepCompletedTopics} / {stepTopics.length} competencies
-                              </span>
-                            )}
+                {/* Top Section: Related Roadmaps Box + Curated YouTube Playlists */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 pt-2">
+                  {/* Related Roadmaps Floating Card (Matching Screenshot Top-Left Box!) */}
+                  {rm.related_roadmaps && rm.related_roadmaps.length > 0 && (
+                    <div className="lg:col-span-4 bg-slate-50 dark:bg-slate-800/60 border-2 border-slate-300 dark:border-slate-700 rounded-2xl p-4 space-y-2.5">
+                      <div className="flex items-center space-x-2 pb-1 border-b border-slate-200 dark:border-slate-700">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                          Related Roadmaps
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {rm.related_roadmaps.map((relTrack, rIdx) => (
+                          <div
+                            key={rIdx}
+                            onClick={() => handleQuickGoal(relTrack)}
+                            className="flex items-center space-x-2 text-xs text-slate-700 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer font-medium p-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <span className="truncate">{relTrack}</span>
                           </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                            {step.description}
-                          </p>
+                  {/* Curated YouTube Playlists at Start of Roadmap */}
+                  <div className={rm.related_roadmaps && rm.related_roadmaps.length > 0 ? "lg:col-span-8" : "lg:col-span-12"}>
+                    <div className="bg-red-50/50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-red-900 dark:text-red-200 flex items-center space-x-1.5 uppercase tracking-wider">
+                          <Play className="w-3.5 h-3.5 fill-red-600 text-red-600" />
+                          <span>Curated YouTube Playlists & Video Courses</span>
+                        </span>
+                        <span className="text-[10px] text-red-700 dark:text-red-300 font-semibold">
+                          Recommended Watching
+                        </span>
+                      </div>
 
-                          {/* DUAL-CAREER SPLIT VIEW (On the SAME Timeline Node) */}
-                          {hasDualSplit ? (
-                            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
-                              {/* Shared Cadence Topics if any */}
-                              {sharedTopics.length > 0 && (
-                                <div className="space-y-1.5 pb-1">
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 flex items-center space-x-1">
-                                    <Clock className="w-3 h-3 mr-1" />
-                                    Synchronized Study Cadence & Strategy
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {(rm.youtube_playlists && rm.youtube_playlists.length > 0
+                          ? rm.youtube_playlists
+                          : [
+                              {
+                                title: 'Full AI Engineer Course',
+                                channel: 'freeCodeCamp.org',
+                                url: 'https://www.youtube.com/@freecodecamp',
+                                badge: 'Free Course',
+                                videos_count: 'Full Series'
+                              },
+                              {
+                                title: 'Neural Networks: Zero to Hero',
+                                channel: 'Andrej Karpathy',
+                                url: 'https://www.youtube.com/playlist?list=PLAqhIrjkxbuWI23v9cThsA9GvCAUhRvKZ',
+                                badge: 'Top Rated',
+                                videos_count: '8 Videos'
+                              }
+                            ]
+                        ).map((pl, pIdx) => (
+                          <a
+                            key={pIdx}
+                            href={pl.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-red-200/80 dark:border-red-800/60 hover:border-red-500 dark:hover:border-red-500 shadow-2xs transition-all flex items-start space-x-3 group"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-red-600 text-white flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+                              <Play className="w-4 h-4 fill-white" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <span className="block text-xs font-bold text-slate-900 dark:text-white group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors truncate">
+                                {pl.title}
+                              </span>
+                              <div className="flex items-center space-x-2 mt-0.5">
+                                <span className="text-[11px] text-slate-500 truncate">
+                                  {pl.channel}
+                                </span>
+                                {pl.badge && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-red-100 dark:bg-red-900/60 text-red-800 dark:text-red-200 shrink-0">
+                                    {pl.badge}
                                   </span>
-                                  <div className="grid grid-cols-1 gap-2">
-                                    {sharedTopics.map(({ topic, idx: tIdx }) => (
+                                )}
+                              </div>
+                            </div>
+                            <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-red-500 shrink-0" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* -------------------------------------------------------------
+                    VIEW MODE 1: VISUAL TREE GRAPH (roadmap.sh NODE & BRANCHES)
+                    Modeled after uploaded screenshot media_1793081493341_6c25713c.png
+                   ------------------------------------------------------------- */}
+                {viewMode === 'visual' ? (
+                  <div className="relative pt-6 pb-12 overflow-x-auto">
+                    {/* Central Vertical Spine / Blue Trunk Line */}
+                    <div className="relative min-w-[760px] max-w-4xl mx-auto">
+                      {/* Vertical Spine Line */}
+                      <div className="absolute left-1/2 top-0 bottom-0 w-1 -translate-x-1/2 bg-blue-600 dark:bg-blue-500 z-0 rounded-full" />
+
+                      <div className="space-y-16 relative z-10">
+                        {rm.steps.map((step: RoadmapStep, sIdx: number) => {
+                          const stepTopics = step.topics || [];
+                          // Split subtopics into left-side and right-side branches
+                          const midPoint = Math.ceil(stepTopics.length / 2);
+                          const leftTopics = stepTopics.slice(0, midPoint);
+                          const rightTopics = stepTopics.slice(midPoint);
+
+                          return (
+                            <div key={step.id} className="relative">
+                              {/* Section Name / Step Order Tag Above Center Milestone */}
+                              <div className="text-center mb-2">
+                                <span className="inline-block px-3 py-1 rounded-full text-[11px] font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 shadow-2xs">
+                                  {step.title.split('.')[0] ? `Phase ${step.title.split('.')[0]}` : `Phase ${sIdx + 1}`} • Section Foundations
+                                </span>
+                              </div>
+
+                              {/* Center Milestone Node + Radiating Left & Right Branches */}
+                              <div className="grid grid-cols-12 items-center gap-4">
+                                {/* LEFT BRANCH SUBTOPICS */}
+                                <div className="col-span-4 flex flex-col items-end space-y-2.5 pr-2">
+                                  {leftTopics.map((topic: RoadmapTopic, tIdx: number) => {
+                                    const actualIdx = tIdx;
+                                    const hasRefs = topic.references && topic.references.length > 0;
+                                    return (
                                       <div
-                                        key={tIdx}
-                                        onClick={() =>
-                                          toggleTopicMutation.mutate({
-                                            roadmapId: rm.id,
-                                            stepId: step.id,
-                                            topicIdx: tIdx
-                                          })
-                                        }
-                                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs cursor-pointer transition-colors ${
-                                          topic.completed
-                                            ? 'bg-slate-100/60 dark:bg-slate-800/40 border-slate-200/50 dark:border-slate-800 text-slate-400 line-through'
-                                            : 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/70 dark:border-amber-800/50 text-slate-800 dark:text-slate-200 hover:border-amber-400'
-                                        }`}
+                                        key={actualIdx}
+                                        className="relative flex items-center group w-full justify-end"
                                       >
-                                        <div className="flex items-center space-x-2 truncate pr-2">
-                                          {topic.completed ? (
-                                            <CheckSquare className="w-4 h-4 text-emerald-500 shrink-0" />
-                                          ) : (
-                                            <Square className="w-4 h-4 text-amber-500 shrink-0" />
-                                          )}
-                                          <span className="truncate font-medium">{topic.name}</span>
+                                        {/* Subtopic Card Styled in Warm Amber / Yellow */}
+                                        <div
+                                          onClick={() =>
+                                            setInspectorTopic({
+                                              roadmapId: rm.id,
+                                              stepId: step.id,
+                                              stepTitle: step.title,
+                                              topicIdx: actualIdx,
+                                              topic
+                                            })
+                                          }
+                                          className={`w-full max-w-[240px] p-2.5 rounded-xl border-2 transition-all cursor-pointer shadow-sm text-left ${
+                                            topic.completed
+                                              ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-700 opacity-60'
+                                              : 'bg-[#fef3c7] dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 hover:border-black dark:hover:border-white hover:shadow-md'
+                                          }`}
+                                        >
+                                          <div className="flex items-start justify-between gap-1.5">
+                                            <span
+                                              className={`text-xs font-bold leading-tight ${
+                                                topic.completed
+                                                  ? 'line-through text-slate-400'
+                                                  : 'text-slate-900 dark:text-slate-100'
+                                              }`}
+                                            >
+                                              {topic.name}
+                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleTopicMutation.mutate({
+                                                  roadmapId: rm.id,
+                                                  stepId: step.id,
+                                                  topicIdx: actualIdx
+                                                });
+                                              }}
+                                              className="shrink-0 p-0.5 hover:scale-110 transition-transform"
+                                            >
+                                              {topic.completed ? (
+                                                <CheckSquare className="w-4 h-4 text-emerald-600" />
+                                              ) : (
+                                                <Square className="w-4 h-4 text-slate-400 hover:text-black dark:hover:text-white" />
+                                              )}
+                                            </button>
+                                          </div>
+
+                                          <div className="mt-1.5 flex items-center justify-between text-[10px]">
+                                            <span className={`px-1 rounded text-[9px] font-bold ${getImportanceBadge(topic.importance)}`}>
+                                              {topic.importance || 'Must Know'}
+                                            </span>
+                                            {hasRefs && (
+                                              <span className="text-amber-800 dark:text-amber-300 font-bold flex items-center space-x-0.5">
+                                                <BookOpen className="w-3 h-3 mr-0.5" />
+                                                <span>{topic.references!.length} refs</span>
+                                              </span>
+                                            )}
+                                          </div>
                                         </div>
-                                        {topic.importance && (
-                                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap shrink-0 ${getImportanceBadge(topic.importance)}`}>
-                                            {topic.importance}
-                                          </span>
-                                        )}
+
+                                        {/* Dotted Connector Line to Center */}
+                                        <div className="w-6 border-b-2 border-dotted border-blue-500 dark:border-blue-400 shrink-0" />
                                       </div>
-                                    ))}
+                                    );
+                                  })}
+                                </div>
+
+                                {/* CENTER MILESTONE CARD (Yellow Box with Black Border) */}
+                                <div className="col-span-4 flex justify-center">
+                                  <div
+                                    onClick={() =>
+                                      toggleStepMutation.mutate({
+                                        roadmapId: rm.id,
+                                        stepId: step.id
+                                      })
+                                    }
+                                    className={`relative z-20 py-3.5 px-5 rounded-2xl border-2 transition-all cursor-pointer shadow-md text-center group ${
+                                      step.completed
+                                        ? 'bg-emerald-600 text-white border-black'
+                                        : 'bg-yellow-300 hover:bg-yellow-400 dark:bg-yellow-400 text-black border-black hover:scale-105'
+                                    }`}
+                                  >
+                                    <h3 className="text-xs sm:text-sm font-black leading-snug">
+                                      {step.title.replace(/^\d+\.\s*/, '')}
+                                    </h3>
+                                    <div className="mt-1 flex items-center justify-center space-x-1.5 text-[10px] font-bold">
+                                      {step.completed ? (
+                                        <span className="flex items-center text-white">
+                                          <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                                          Completed
+                                        </span>
+                                      ) : (
+                                        <span className="opacity-80">
+                                          {stepTopics.filter((t) => t.completed).length} / {stepTopics.length} done
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
-                              )}
 
-                              {/* Two Columns Side-by-Side: Career 1 and Career 2 */}
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                                {/* Career 1 Column */}
-                                <div className="p-3.5 rounded-2xl bg-blue-50/40 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/50 space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300 flex items-center space-x-1">
-                                      <Laptop className="w-3.5 h-3.5 mr-1 text-blue-600" />
-                                      {t1}
-                                    </span>
-                                    <span className="text-[10px] font-semibold text-blue-600/80 dark:text-blue-400/80">Career 1</span>
-                                  </div>
-
-                                  <div className="space-y-1.5">
-                                    {t1Topics.map(({ topic, idx: tIdx }) => (
+                                {/* RIGHT BRANCH SUBTOPICS */}
+                                <div className="col-span-4 flex flex-col items-start space-y-2.5 pl-2">
+                                  {rightTopics.map((topic: RoadmapTopic, tIdx: number) => {
+                                    const actualIdx = midPoint + tIdx;
+                                    const hasRefs = topic.references && topic.references.length > 0;
+                                    return (
                                       <div
-                                        key={tIdx}
-                                        onClick={() =>
-                                          toggleTopicMutation.mutate({
-                                            roadmapId: rm.id,
-                                            stepId: step.id,
-                                            topicIdx: tIdx
-                                          })
-                                        }
-                                        className={`flex items-center justify-between p-2 rounded-xl border text-xs cursor-pointer transition-colors ${
-                                          topic.completed
-                                            ? 'bg-slate-100/60 dark:bg-slate-800/40 border-slate-200/50 dark:border-slate-800 text-slate-400 line-through'
-                                            : 'bg-white dark:bg-slate-900 border-blue-200/80 dark:border-blue-800/60 text-slate-800 dark:text-slate-200 hover:border-blue-500'
-                                        }`}
+                                        key={actualIdx}
+                                        className="relative flex items-center group w-full justify-start"
                                       >
-                                        <div className="flex items-center space-x-2 truncate pr-2">
-                                          {topic.completed ? (
-                                            <CheckSquare className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                                          ) : (
-                                            <Square className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                                          )}
-                                          <span className="truncate font-medium">{topic.name.replace(`[${t1}]`, '').trim()}</span>
-                                        </div>
-                                        {topic.importance && (
-                                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap shrink-0 ${getImportanceBadge(topic.importance)}`}>
-                                            {topic.importance}
-                                          </span>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
+                                        {/* Dotted Connector Line from Center */}
+                                        <div className="w-6 border-b-2 border-dotted border-blue-500 dark:border-blue-400 shrink-0" />
 
-                                {/* Career 2 Column */}
-                                <div className="p-3.5 rounded-2xl bg-purple-50/40 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-900/50 space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 flex items-center space-x-1">
-                                      <Sparkles className="w-3.5 h-3.5 mr-1 text-purple-600" />
-                                      {t2}
-                                    </span>
-                                    <span className="text-[10px] font-semibold text-purple-600/80 dark:text-purple-400/80">Career 2</span>
-                                  </div>
+                                        {/* Subtopic Card Styled in Warm Amber / Yellow */}
+                                        <div
+                                          onClick={() =>
+                                            setInspectorTopic({
+                                              roadmapId: rm.id,
+                                              stepId: step.id,
+                                              stepTitle: step.title,
+                                              topicIdx: actualIdx,
+                                              topic
+                                            })
+                                          }
+                                          className={`w-full max-w-[240px] p-2.5 rounded-xl border-2 transition-all cursor-pointer shadow-sm text-left ${
+                                            topic.completed
+                                              ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-700 opacity-60'
+                                              : 'bg-[#fef3c7] dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 hover:border-black dark:hover:border-white hover:shadow-md'
+                                          }`}
+                                        >
+                                          <div className="flex items-start justify-between gap-1.5">
+                                            <span
+                                              className={`text-xs font-bold leading-tight ${
+                                                topic.completed
+                                                  ? 'line-through text-slate-400'
+                                                  : 'text-slate-900 dark:text-slate-100'
+                                              }`}
+                                            >
+                                              {topic.name}
+                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleTopicMutation.mutate({
+                                                  roadmapId: rm.id,
+                                                  stepId: step.id,
+                                                  topicIdx: actualIdx
+                                                });
+                                              }}
+                                              className="shrink-0 p-0.5 hover:scale-110 transition-transform"
+                                            >
+                                              {topic.completed ? (
+                                                <CheckSquare className="w-4 h-4 text-emerald-600" />
+                                              ) : (
+                                                <Square className="w-4 h-4 text-slate-400 hover:text-black dark:hover:text-white" />
+                                              )}
+                                            </button>
+                                          </div>
 
-                                  <div className="space-y-1.5">
-                                    {t2Topics.map(({ topic, idx: tIdx }) => (
-                                      <div
-                                        key={tIdx}
-                                        onClick={() =>
-                                          toggleTopicMutation.mutate({
-                                            roadmapId: rm.id,
-                                            stepId: step.id,
-                                            topicIdx: tIdx
-                                          })
-                                        }
-                                        className={`flex items-center justify-between p-2 rounded-xl border text-xs cursor-pointer transition-colors ${
-                                          topic.completed
-                                            ? 'bg-slate-100/60 dark:bg-slate-800/40 border-slate-200/50 dark:border-slate-800 text-slate-400 line-through'
-                                            : 'bg-white dark:bg-slate-900 border-purple-200/80 dark:border-purple-800/60 text-slate-800 dark:text-slate-200 hover:border-purple-500'
-                                        }`}
-                                      >
-                                        <div className="flex items-center space-x-2 truncate pr-2">
-                                          {topic.completed ? (
-                                            <CheckSquare className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                                          ) : (
-                                            <Square className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-                                          )}
-                                          <span className="truncate font-medium">{topic.name.replace(`[${t2}]`, '').trim()}</span>
+                                          <div className="mt-1.5 flex items-center justify-between text-[10px]">
+                                            <span className={`px-1 rounded text-[9px] font-bold ${getImportanceBadge(topic.importance)}`}>
+                                              {topic.importance || 'Must Know'}
+                                            </span>
+                                            {hasRefs && (
+                                              <span className="text-amber-800 dark:text-amber-300 font-bold flex items-center space-x-0.5">
+                                                <BookOpen className="w-3 h-3 mr-0.5" />
+                                                <span>{topic.references!.length} refs</span>
+                                              </span>
+                                            )}
+                                          </div>
                                         </div>
-                                        {topic.importance && (
-                                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap shrink-0 ${getImportanceBadge(topic.importance)}`}>
-                                            {topic.importance}
-                                          </span>
-                                        )}
                                       </div>
-                                    ))}
-                                  </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             </div>
-                          ) : (
-                            /* Standard Single-Track Grid */
-                            stepTopics.length > 0 && (
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* -------------------------------------------------------------
+                      VIEW MODE 2: SEQUENTIAL MILESTONE TIMELINE
+                     ------------------------------------------------------------- */
+                  <div className="relative pl-4 sm:pl-6 space-y-8 before:absolute before:left-[19px] sm:before:left-[27px] before:top-4 before:bottom-4 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
+                    {rm.steps.map((step: RoadmapStep, sIdx: number) => {
+                      const stepTopics = step.topics || [];
+                      const stepCompletedTopics = stepTopics.filter((t) => t.completed).length;
+
+                      return (
+                        <div key={step.id} className="relative flex items-start space-x-4 sm:space-x-5 group">
+                          <button
+                            onClick={() => toggleStepMutation.mutate({ roadmapId: rm.id, stepId: step.id })}
+                            className={`relative z-10 w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center font-bold text-xs shrink-0 transition-all shadow-sm ${
+                              step.completed
+                                ? 'bg-emerald-600 text-white shadow-emerald-500/20'
+                                : 'bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-amber-500'
+                            }`}
+                          >
+                            {step.completed ? (
+                              <CheckCircle2 className="w-5 h-5 text-white" />
+                            ) : (
+                              <span>{String(step.order || sIdx + 1).padStart(2, '0')}</span>
+                            )}
+                          </button>
+
+                          <div
+                            className={`flex-1 p-5 sm:p-6 rounded-2xl border transition-all ${
+                              step.completed
+                                ? 'bg-slate-50/70 dark:bg-slate-800/30 border-slate-200/60 dark:border-slate-800/60'
+                                : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/80 shadow-sm'
+                            }`}
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                              <h4
+                                className={`text-sm sm:text-base font-bold ${
+                                  step.completed
+                                    ? 'line-through text-slate-400 dark:text-slate-500'
+                                    : 'text-slate-900 dark:text-white'
+                                }`}
+                              >
+                                {step.title}
+                              </h4>
+                              {stepTopics.length > 0 && (
+                                <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
+                                  {stepCompletedTopics} / {stepTopics.length} competencies
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                              {step.description}
+                            </p>
+
+                            {/* Subtopics Checklist with Clickable Reference Inspector */}
+                            {stepTopics.length > 0 && (
                               <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                  Core Competencies & Subtopics
+                                  Competencies & Learning References (Click any to inspect)
                                 </span>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
                                   {stepTopics.map((topic: RoadmapTopic, tIdx: number) => (
                                     <div
                                       key={tIdx}
                                       onClick={() =>
-                                        toggleTopicMutation.mutate({
+                                        setInspectorTopic({
                                           roadmapId: rm.id,
                                           stepId: step.id,
-                                          topicIdx: tIdx
+                                          stepTitle: step.title,
+                                          topicIdx: tIdx,
+                                          topic
                                         })
                                       }
                                       className={`flex items-center justify-between p-2.5 rounded-xl border text-xs cursor-pointer transition-colors ${
                                         topic.completed
                                           ? 'bg-slate-100/60 dark:bg-slate-800/40 border-slate-200/50 dark:border-slate-800 text-slate-400 line-through'
-                                          : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 hover:border-brand-500/60'
+                                          : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 hover:border-amber-500/80'
                                       }`}
                                     >
                                       <div className="flex items-center space-x-2 truncate pr-2">
-                                        {topic.completed ? (
-                                          <CheckSquare className="w-4 h-4 text-emerald-500 shrink-0" />
-                                        ) : (
-                                          <Square className="w-4 h-4 text-slate-400 shrink-0" />
-                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleTopicMutation.mutate({
+                                              roadmapId: rm.id,
+                                              stepId: step.id,
+                                              topicIdx: tIdx
+                                            });
+                                          }}
+                                          className="shrink-0"
+                                        >
+                                          {topic.completed ? (
+                                            <CheckSquare className="w-4 h-4 text-emerald-500 shrink-0" />
+                                          ) : (
+                                            <Square className="w-4 h-4 text-slate-400 shrink-0" />
+                                          )}
+                                        </button>
                                         <span className="truncate font-medium">{topic.name}</span>
                                       </div>
 
-                                      {topic.importance && (
-                                        <span
-                                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap shrink-0 ${getImportanceBadge(
-                                            topic.importance
-                                          )}`}
-                                        >
-                                          {topic.importance}
-                                        </span>
-                                      )}
+                                      <div className="flex items-center space-x-1.5 shrink-0">
+                                        {topic.references && topic.references.length > 0 && (
+                                          <BookOpen className="w-3.5 h-3.5 text-amber-500" />
+                                        )}
+                                        {topic.importance && (
+                                          <span
+                                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap ${getImportanceBadge(
+                                              topic.importance
+                                            )}`}
+                                          >
+                                            {topic.importance}
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                   ))}
                                 </div>
                               </div>
-                            )
-                          )}
-
-                          {/* Curated Resources / Saved Courses */}
-                          {step.resources && step.resources.length > 0 && (
-                            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-1">
-                                <BookOpen className="w-3 h-3 mr-1" />
-                                Curated Learning Resources & Saved Courses
-                              </span>
-                              <div className="flex flex-wrap gap-2 pt-1">
-                                {step.resources.map((res: any, rIdx: number) => (
-                                  <a
-                                    key={rIdx}
-                                    href={res.url || '#'}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border border-brand-200/70 dark:border-brand-800/60 hover:bg-brand-100 dark:hover:bg-brand-900/50 transition-colors shadow-2xs"
-                                  >
-                                    <span>{res.title}</span>
-                                    <ExternalLink className="w-3 h-3 text-brand-500" />
-                                  </a>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* -------------------------------------------------------------
+          SUBTOPIC INSPECTOR & REFERENCE MATERIAL MODAL / DRAWER
+         ------------------------------------------------------------- */}
+      {inspectorTopic && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border-2 border-slate-200 dark:border-slate-800 max-w-xl w-full p-6 sm:p-7 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                  {inspectorTopic.stepTitle}
+                </span>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  {inspectorTopic.topic.name}
+                </h3>
+              </div>
+              <button
+                onClick={() => setInspectorTopic(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Topic Description / Key Concept */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Concept & What to Learn
+              </span>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                {inspectorTopic.topic.description ||
+                  'Master the core architecture, syntax primitives, and production tradeoffs for this competency.'}
+              </p>
+            </div>
+
+            {/* Action Toggle Status */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/60">
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    toggleTopicMutation.mutate({
+                      roadmapId: inspectorTopic.roadmapId,
+                      stepId: inspectorTopic.stepId,
+                      topicIdx: inspectorTopic.topicIdx
+                    })
+                  }
+                  className="flex items-center space-x-2 text-xs font-bold text-slate-900 dark:text-white"
+                >
+                  {inspectorTopic.topic.completed ? (
+                    <CheckSquare className="w-4 h-4 text-emerald-600" />
+                  ) : (
+                    <Square className="w-4 h-4 text-slate-400" />
+                  )}
+                  <span>
+                    Status: {inspectorTopic.topic.completed ? 'Completed' : 'In Progress'}
+                  </span>
+                </button>
+              </div>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${getImportanceBadge(inspectorTopic.topic.importance)}`}>
+                {inspectorTopic.topic.importance || 'Must Know'}
+              </span>
+            </div>
+
+            {/* Reference Materials List */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center space-x-1.5">
+                  <BookOpen className="w-4 h-4 text-amber-500" />
+                  <span>Curated Learning Materials & Documentation</span>
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  {(inspectorTopic.topic.references || []).length} resources
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {(inspectorTopic.topic.references || []).length === 0 ? (
+                  <p className="text-xs text-slate-400 italic p-3 text-center border border-dashed rounded-xl">
+                    No references added yet. Click &quot;Add Material&quot; below to attach documentation or video guides!
+                  </p>
+                ) : (
+                  (inspectorTopic.topic.references || []).map((ref: RoadmapReference, rIdx: number) => (
+                    <div
+                      key={rIdx}
+                      className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-2"
+                    >
+                      <div className="flex items-center space-x-2.5 truncate">
+                        <span className="p-1 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
+                          {ref.type === 'video' ? <Video className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
+                        </span>
+                        <div className="truncate">
+                          <a
+                            href={ref.url || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-bold text-slate-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 truncate flex items-center space-x-1"
+                          >
+                            <span className="truncate">{ref.title}</span>
+                            <ExternalLink className="w-3 h-3 text-slate-400 shrink-0" />
+                          </a>
+                          {ref.notes && (
+                            <span className="block text-[10px] text-slate-400 truncate">{ref.notes}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2 shrink-0">
+                        {ref.is_user_added && (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">
+                            Your Added Material
+                          </span>
+                        )}
+                        {ref.is_user_added && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deleteReferenceMutation.mutate({
+                                roadmapId: inspectorTopic.roadmapId,
+                                stepId: inspectorTopic.stepId,
+                                topicIdx: inspectorTopic.topicIdx,
+                                refIdx: rIdx
+                              })
+                            }
+                            className="p-1 text-slate-400 hover:text-rose-500 rounded"
+                            title="Delete custom material"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* User Form: Add Reference Material to Subtopic */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+              {!isAddingRef ? (
+                <button
+                  type="button"
+                  onClick={() => setIsAddingRef(true)}
+                  className="w-full py-2.5 rounded-xl border-2 border-dashed border-amber-300 dark:border-amber-700/80 hover:border-amber-500 text-amber-700 dark:text-amber-300 text-xs font-bold transition-colors flex items-center justify-center space-x-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Reference Material or Link to this Subtopic</span>
+                </button>
+              ) : (
+                <form onSubmit={handleSaveReference} className="bg-amber-50/50 dark:bg-amber-950/20 p-4 rounded-2xl border border-amber-300 dark:border-amber-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                      Attach Custom Material / Link
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingRef(false)}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      required
+                      value={newRefTitle}
+                      onChange={(e) => setNewRefTitle(e.target.value)}
+                      placeholder="Material Title (e.g. Stanford Lecture Video, Deeplearning.ai Notes)"
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                    />
+
+                    <input
+                      type="url"
+                      required
+                      value={newRefUrl}
+                      onChange={(e) => setNewRefUrl(e.target.value)}
+                      placeholder="Link URL (e.g. https://youtube.com/watch?v=... or doc link)"
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                    />
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={newRefType}
+                        onChange={(e) => setNewRefType(e.target.value)}
+                        className="px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                      >
+                        <option value="doc">Official Documentation</option>
+                        <option value="video">YouTube / Video Guide</option>
+                        <option value="article">Article / Tutorial</option>
+                        <option value="github">GitHub Repo</option>
+                      </select>
+
+                      <input
+                        type="text"
+                        value={newRefNotes}
+                        onChange={(e) => setNewRefNotes(e.target.value)}
+                        placeholder="Optional Notes / Chapter"
+                        className="px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end space-x-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingRef(false)}
+                      className="px-3 py-1.5 rounded-xl text-xs text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={addReferenceMutation.isPending || !newRefTitle.trim() || !newRefUrl.trim()}
+                      className="px-4 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-black text-xs font-bold transition-colors disabled:opacity-50"
+                    >
+                      {addReferenceMutation.isPending ? 'Saving...' : 'Save Material'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

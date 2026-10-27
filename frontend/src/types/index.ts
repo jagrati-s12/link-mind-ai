@@ -169,12 +169,30 @@ export interface SkillGapData {
   }[];
 }
 
+export interface RoadmapReference {
+  title: string;
+  url?: string;
+  type?: string;
+  notes?: string;
+  is_user_added?: boolean;
+}
+
 export interface RoadmapTopic {
   name: string;
   importance?: 'Must Know' | 'Recommended' | 'Advanced';
   completed?: boolean;
   url?: string;
   track?: string;
+  description?: string;
+  references?: RoadmapReference[];
+}
+
+export interface RoadmapYouTubePlaylist {
+  title: string;
+  channel: string;
+  url: string;
+  badge?: string;
+  videos_count?: string;
 }
 
 export interface RoadmapResourceLink {
@@ -205,8 +223,22 @@ export interface Roadmap {
   description: string;
   target_role: string;
   steps: RoadmapStep[];
+  youtube_playlists?: RoadmapYouTubePlaylist[];
+  related_roadmaps?: string[];
   created_at: string;
   updated_at: string;
+}
+
+export interface RoadmapCatalogItem {
+  id: string;
+  title: string;
+  category: string;
+  badge: string;
+  target_role: string;
+  description: string;
+  modules_count: number;
+  popular_pair: string;
+  icon: string;
 }
 
 export interface Application {

@@ -262,6 +262,8 @@ class Roadmap(Base):
     description = Column(Text, default="")
     target_role = Column(String(255), default="")
     steps = Column(JSON, default=list) # [{id, title, description, resource_ids, skill_ids, order, completed}]
+    youtube_playlists = Column(JSON, default=list) # [{title, channel, url, badge, videos_count}]
+    related_roadmaps = Column(JSON, default=list) # ["Prompt Engineering", "MLOps", etc.]
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 

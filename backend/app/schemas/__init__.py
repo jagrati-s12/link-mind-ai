@@ -419,6 +419,8 @@ class RoadmapOut(BaseModel):
     description: str = ""
     target_role: str = ""
     steps: List[Dict[str, Any]] = []
+    youtube_playlists: Optional[List[Dict[str, Any]]] = []
+    related_roadmaps: Optional[List[str]] = []
     created_at: datetime
     updated_at: datetime
 

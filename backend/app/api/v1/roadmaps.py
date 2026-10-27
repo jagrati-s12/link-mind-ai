@@ -1,13 +1,18 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.models import User, Roadmap
 from app.schemas import RoadmapOut, RoadmapCreate, RoadmapUpdate
-from app.services.roadmap_generator import generate_personalized_roadmap
+from app.services.roadmap_generator import generate_personalized_roadmap, get_roadmap_catalog
 from app.api.deps import get_current_user
 
 router = APIRouter(prefix="/roadmaps", tags=["Roadmaps"])
+
+@router.get("/catalog")
+def list_roadmap_catalog():
+    """Returns curated roadmap.sh presets available for 1-click generation."""
+    return get_roadmap_catalog()
 
 @router.get("", response_model=List[RoadmapOut])
 def list_roadmaps(
@@ -38,7 +43,9 @@ async def generate_roadmap(
         goal_title=plan["goal_title"],
         target_role=plan["target_role"],
         description=plan["description"],
-        steps=plan["steps"]
+        steps=plan["steps"],
+        youtube_playlists=plan.get("youtube_playlists", []),
+        related_roadmaps=plan.get("related_roadmaps", [])
     )
     db.add(rm)
     db.commit()
@@ -147,6 +154,84 @@ def toggle_subtopic(
                     s["completed"] = True
                 elif not any(t.get("completed", False) for t in topics):
                     s["completed"] = False
+        updated_steps.append(s)
+
+    rm.steps = updated_steps
+    db.commit()
+    db.refresh(rm)
+    return rm
+
+@router.post("/{roadmap_id}/steps/{step_id}/topics/{topic_idx}/references", response_model=RoadmapOut)
+def add_subtopic_reference(
+    roadmap_id: int,
+    step_id: str,
+    topic_idx: int,
+    payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    rm = db.query(Roadmap).filter(
+        Roadmap.id == roadmap_id,
+        Roadmap.user_id == current_user.id
+    ).first()
+    if not rm:
+        raise HTTPException(status_code=404, detail="Roadmap not found.")
+
+    updated_steps = []
+    for step in rm.steps:
+        s = dict(step)
+        if s.get("id") == step_id:
+            topics = [dict(t) for t in s.get("topics", [])]
+            if 0 <= topic_idx < len(topics):
+                t = dict(topics[topic_idx])
+                refs = list(t.get("references", []))
+                new_ref = {
+                    "title": payload.get("title") or "Learning Material",
+                    "url": payload.get("url") or "",
+                    "type": payload.get("type") or "link",
+                    "notes": payload.get("notes") or "",
+                    "is_user_added": True
+                }
+                refs.append(new_ref)
+                t["references"] = refs
+                topics[topic_idx] = t
+                s["topics"] = topics
+        updated_steps.append(s)
+
+    rm.steps = updated_steps
+    db.commit()
+    db.refresh(rm)
+    return rm
+
+@router.delete("/{roadmap_id}/steps/{step_id}/topics/{topic_idx}/references/{ref_idx}", response_model=RoadmapOut)
+def delete_subtopic_reference(
+    roadmap_id: int,
+    step_id: str,
+    topic_idx: int,
+    ref_idx: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    rm = db.query(Roadmap).filter(
+        Roadmap.id == roadmap_id,
+        Roadmap.user_id == current_user.id
+    ).first()
+    if not rm:
+        raise HTTPException(status_code=404, detail="Roadmap not found.")
+
+    updated_steps = []
+    for step in rm.steps:
+        s = dict(step)
+        if s.get("id") == step_id:
+            topics = [dict(t) for t in s.get("topics", [])]
+            if 0 <= topic_idx < len(topics):
+                t = dict(topics[topic_idx])
+                refs = list(t.get("references", []))
+                if 0 <= ref_idx < len(refs):
+                    refs.pop(ref_idx)
+                t["references"] = refs
+                topics[topic_idx] = t
+                s["topics"] = topics
         updated_steps.append(s)
 
     rm.steps = updated_steps

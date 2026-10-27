@@ -761,6 +761,67 @@ def test_hybrid_multi_track_roadmap_combination(client, user_token):
     assert capstone_step is not None
     assert len(capstone_step["topics"]) > 0
 
+def test_roadmap_sh_visual_tree_playlists_and_user_references(client, user_token):
+    """Verify roadmap.sh catalogue, curated YouTube playlists, subtopic references, and user custom reference adding"""
+    headers = {"Authorization": f"Bearer {user_token}"}
+
+    # 1. Fetch catalog
+    cat_resp = client.get("/api/v1/roadmaps/catalog", headers=headers)
+    assert cat_resp.status_code == 200
+    catalog = cat_resp.json()
+    assert len(catalog) >= 5
+    ai_item = next((c for c in catalog if "ai" in c["id"]), None)
+    assert ai_item is not None
+
+    # 2. Generate AI Roadmap
+    gen_resp = client.post("/api/v1/roadmaps/generate", json={"goal_title": "AI Engineer (roadmap.sh/ai)"}, headers=headers)
+    assert gen_resp.status_code == 200
+    rm = gen_resp.json()
+    roadmap_id = rm["id"]
+
+    # Check YouTube playlists and related roadmaps
+    assert len(rm.get("youtube_playlists", [])) > 0
+    assert any("Karpathy" in p["channel"] or "DeepLearning" in p["channel"] for p in rm["youtube_playlists"])
+    assert len(rm.get("related_roadmaps", [])) > 0
+
+    # Check topic references
+    step1 = rm["steps"][0]
+    topic0 = step1["topics"][0]
+    assert "references" in topic0
+    assert len(topic0["references"]) > 0
+
+    # 3. Add custom user reference material to this subtopic
+    step_id = step1["id"]
+    add_resp = client.post(
+        f"/api/v1/roadmaps/{roadmap_id}/steps/{step_id}/topics/0/references",
+        json={
+            "title": "My Favorite Stanford AI Lecture",
+            "url": "https://stanford.edu/class/cs229",
+            "type": "video",
+            "notes": "Covers gradient descent and backprop"
+        },
+        headers=headers
+    )
+    assert add_resp.status_code == 200
+    updated_rm = add_resp.json()
+    updated_topic = updated_rm["steps"][0]["topics"][0]
+    user_refs = [r for r in updated_topic.get("references", []) if r.get("is_user_added")]
+    assert len(user_refs) == 1
+    assert user_refs[0]["title"] == "My Favorite Stanford AI Lecture"
+
+    # 4. Delete the custom user reference material
+    ref_idx = len(updated_topic["references"]) - 1
+    del_resp = client.delete(
+        f"/api/v1/roadmaps/{roadmap_id}/steps/{step_id}/topics/0/references/{ref_idx}",
+        headers=headers
+    )
+    assert del_resp.status_code == 200
+    after_del_rm = del_resp.json()
+    after_del_topic = after_del_rm["steps"][0]["topics"][0]
+    user_refs_after = [r for r in after_del_topic.get("references", []) if r.get("is_user_added")]
+    assert len(user_refs_after) == 0
+
+
 
 
 

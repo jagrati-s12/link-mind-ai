@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from app.core.db import get_db
@@ -21,12 +21,18 @@ def list_roadmaps(
 
 @router.post("/generate", response_model=RoadmapOut)
 async def generate_roadmap(
-    goal_title: str = Body(..., embed=True),
+    goal_title: Optional[str] = Body(None, embed=True),
+    goals: Optional[List[str]] = Body(None, embed=True),
     target_role: str = Body("", embed=True),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    plan = await generate_personalized_roadmap(db, current_user.id, goal_title, target_role)
+    if goals and len(goals) > 1:
+        effective_goal = " + ".join(g.strip() for g in goals if g.strip())
+    else:
+        effective_goal = goal_title or (goals[0] if goals else "Software Engineer")
+
+    plan = await generate_personalized_roadmap(db, current_user.id, effective_goal, target_role)
     rm = Roadmap(
         user_id=current_user.id,
         goal_title=plan["goal_title"],

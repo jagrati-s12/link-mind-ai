@@ -180,10 +180,10 @@ export const api = {
 
   // Roadmaps
   getRoadmaps: () => fetchJson<Roadmap[]>(`${API_BASE}/roadmaps`),
-  generateRoadmap: (goal_title: string, target_role?: string) =>
+  generateRoadmap: (goal_title: string, target_role?: string, goals?: string[]) =>
     fetchJson<Roadmap>(`${API_BASE}/roadmaps/generate`, {
       method: 'POST',
-      body: JSON.stringify({ goal_title, target_role })
+      body: JSON.stringify({ goal_title, target_role, goals })
     }),
   toggleRoadmapStep: (roadmapId: number, stepId: string) =>
     fetchJson<Roadmap>(`${API_BASE}/roadmaps/${roadmapId}/steps/${stepId}/toggle`, {

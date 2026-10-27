@@ -56,6 +56,134 @@ async def generate_personalized_roadmap(db: Session, user_id: int, goal_title: s
     goal_lower = goal_title.lower().strip()
 
     # -------------------------------------------------------------
+    # 0. HYBRID MULTI-TRACK ROADMAP (Combine 2-3 Goals Together)
+    # -------------------------------------------------------------
+    sub_goals = []
+    if "+" in goal_title:
+        sub_goals = [s.strip() for s in goal_title.split("+") if s.strip()]
+    elif "," in goal_title:
+        sub_goals = [s.strip() for s in goal_title.split(",") if s.strip()]
+
+    if len(sub_goals) >= 2:
+        clean_track_names = [re.sub(r'\(.*?\)', '', g).strip().title() for g in sub_goals]
+        resolved_title = f"Hybrid Multi-Track: {' + '.join(clean_track_names)}"
+        resolved_role = target_role or f"Specialist ({' / '.join(clean_track_names[:2])})"
+        track_str = ", ".join(clean_track_names)
+
+        # Match saved courses for each track
+        matched_courses = []
+        for g in clean_track_names:
+            words = [w for w in g.lower().split() if len(w) > 3 and w not in ("roadmap", "engineer", "developer")]
+            matched_courses.extend(_map_saved_courses(saved_courses, words))
+
+        t1 = clean_track_names[0]
+        t2 = clean_track_names[1]
+        t3 = clean_track_names[2] if len(clean_track_names) > 2 else None
+
+        modules = [
+            {
+                "order": 1,
+                "title": "1. Multi-Track Foundations & Study Time-Split",
+                "description": f"Establish an interleaved daily study cadence to pursue {track_str} simultaneously without burnout.",
+                "topics": [
+                    {"name": f"Daily Time-Split Cadence: Morning Drills ({t1}) + Evening Building ({t2})", "importance": "Must Know", "completed": False},
+                    {"name": "Unified Workspace & Multi-Repository Version Control Setup", "importance": "Must Know", "completed": False},
+                    {"name": f"[{t1}] Core Fundamentals, Toolchain & Syntax Essentials", "importance": "Must Know", "completed": False},
+                    {"name": f"[{t2}] Base Architecture, Environment & Runtime Setup", "importance": "Must Know", "completed": False},
+                    {"name": "Spaced Repetition & Daily Habit Tracking Strategy", "importance": "Recommended", "completed": False}
+                ],
+                "resources": matched_courses[:2] or [
+                    {"title": f"roadmap.sh {t1} Guide", "url": "https://roadmap.sh", "type": "guide"},
+                    {"title": f"roadmap.sh {t2} Guide", "url": "https://roadmap.sh", "type": "guide"}
+                ]
+            },
+            {
+                "order": 2,
+                "title": "2. Parallel Core Competencies & Daily Drills",
+                "description": f"Progress through the fundamental structures of {t1} while building core modules in {t2}.",
+                "topics": [
+                    {"name": f"[{t1}] Core Linear Structures & Time/Space Complexity", "importance": "Must Know", "completed": False},
+                    {"name": f"[{t2}] Data Modeling, API Endpoints & Foundation Schemas", "importance": "Must Know", "completed": False},
+                    {"name": f"[{t1}] Two-Pointer & Binary Search Optimization Techniques", "importance": "Must Know", "completed": False},
+                    {"name": f"[{t2}] State Management, Vector Stores, or Containerization", "importance": "Must Know", "completed": False}
+                ] + ([{"name": f"[{t3}] Initial Tooling & Core Primitives", "importance": "Recommended", "completed": False}] if t3 else []),
+                "resources": matched_courses[2:4]
+            },
+            {
+                "order": 3,
+                "title": "3. Intermediate Deep-Dives & System Scalability",
+                "description": f"Scale complexity across both tracks with non-linear patterns, caching tiers, and pipeline automation.",
+                "topics": [
+                    {"name": f"[{t1}] Hierarchical Trees, Heaps & Prefix Search Structures", "importance": "Must Know", "completed": False},
+                    {"name": f"[{t2}] Caching Tiers (Redis), RAG Pipelines, or Cloud Services", "importance": "Must Know", "completed": False},
+                    {"name": f"[{t1}] Sliding Window & Monotonic Stack Problem Sets", "importance": "Must Know", "completed": False},
+                    {"name": f"[{t2}] Asynchronous Workers, Message Queues & Fault Tolerance", "importance": "Must Know", "completed": False}
+                ],
+                "resources": matched_courses[4:6]
+            },
+            {
+                "order": 4,
+                "title": "4. Advanced Graph Algorithms & Production Systems",
+                "description": f"Conquer advanced graph algorithms and dynamic programming while hardening {t2} for production scale.",
+                "topics": [
+                    {"name": f"[{t1}] Graph Traversals (BFS, DFS, Cycle Detection, Dijkstra)", "importance": "Must Know", "completed": False},
+                    {"name": f"[{t1}] Dynamic Programming (Memoization vs Bottom-Up Tabulation)", "importance": "Must Know", "completed": False},
+                    {"name": f"[{t2}] Microservices, Multi-Agent Loops, or Kubernetes Orchestration", "importance": "Must Know", "completed": False},
+                    {"name": "System Design: Latency, High-Throughput & Failure Modes", "importance": "Must Know", "completed": False}
+                ],
+                "resources": []
+            },
+            {
+                "order": 5,
+                "title": "5. The Bridge Capstone: Unifying All Tracks",
+                "description": f"The key to mastering multiple tracks: Build ONE production-grade application that brings together {track_str} into a flagship portfolio piece.",
+                "topics": [
+                    {"name": f"Architecture: Design a High-Performance System Combining {t1} + {t2}", "importance": "Must Know", "completed": False},
+                    {"name": f"Core Implementation: Algorithmic Backend with {t2} Integration", "importance": "Must Know", "completed": False},
+                    {"name": "Benchmarking & Profiling: Optimize Response Times & Resource Footprint", "importance": "Recommended", "completed": False},
+                    {"name": "Automated Testing & CI/CD Cloud Deployment with Live Demo URL", "importance": "Must Know", "completed": False}
+                ] + ([{"name": f"Incorporate {t3} for End-to-End Infrastructure", "importance": "Recommended", "completed": False}] if t3 else []),
+                "resources": []
+            },
+            {
+                "order": 6,
+                "title": "6. Cross-Discipline Interview & Career Readiness",
+                "description": "Synthesize interview readiness across all pursued tracks and position your multi-disciplinary advantage on resumes.",
+                "topics": [
+                    {"name": f"[{t1}] Timed 45-Minute Coding Rounds on Blind 75 / NeetCode 150", "importance": "Must Know", "completed": False},
+                    {"name": f"[{t2}] Technical Architecture Defense & Live System Deep-Dives", "importance": "Must Know", "completed": False},
+                    {"name": f"Resume Alignment: Positioning {track_str} Dual-Track Competency to Recruiters", "importance": "Must Know", "completed": False},
+                    {"name": "Target Opportunities Outreach & Technical Portfolio Presentation", "importance": "Must Know", "completed": False}
+                ],
+                "resources": [
+                    {"title": "Tech Interview Handbook", "url": "https://www.techinterviewhandbook.org/", "type": "guide"}
+                ]
+            }
+        ]
+
+        steps = []
+        for m in modules:
+            step_id = str(uuid.uuid4())[:8]
+            steps.append({
+                "id": step_id,
+                "title": m["title"],
+                "description": m["description"],
+                "topics": m["topics"],
+                "resources": m.get("resources", []),
+                "resource_ids": [r["resource_id"] for r in m.get("resources", []) if "resource_id" in r],
+                "skill_ids": [],
+                "order": m["order"],
+                "completed": False
+            })
+
+        return {
+            "goal_title": resolved_title,
+            "target_role": resolved_role,
+            "description": f"Balanced multi-track execution path designed to pursue {len(clean_track_names)} goals simultaneously ({track_str}). Combines daily time-split schedules, interleaved skill building, and a unified bridge capstone.",
+            "steps": steps
+        }
+
+    # -------------------------------------------------------------
     # 1. AI ENGINEER ROADMAP (https://roadmap.sh/ai)
     # -------------------------------------------------------------
     if any(term in goal_lower for term in ["ai", "artificial intelligence", "llm", "machine learning", "genai", "agent", "deep learning"]):

@@ -740,6 +740,28 @@ def test_roadmap_sh_ai_generation_and_subtopic_toggle(client, user_token):
     assert master_rm["steps"][0]["completed"] is True
     assert master_rm["steps"][0]["topics"][0]["completed"] is True
 
+def test_hybrid_multi_track_roadmap_combination(client, user_token):
+    """Verify that multiple goals (2-3 tracks) combine into a balanced hybrid roadmap with interleaved modules"""
+    headers = {"Authorization": f"Bearer {user_token}"}
+
+    # Generate hybrid roadmap for 2 tracks: Algorithms + AI Engineer
+    resp = client.post("/api/v1/roadmaps/generate", json={
+        "goals": ["Data Structures & Algorithms", "AI Engineer"]
+    }, headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert "Hybrid Multi-Track" in data["goal_title"]
+    assert "Data Structures & Algorithms" in data["goal_title"]
+    assert "Ai Engineer" in data["goal_title"]
+    assert len(data["steps"]) >= 5
+
+    # Check for capstone and multi-track topics
+    capstone_step = next((s for s in data["steps"] if "Bridge Capstone" in s["title"]), None)
+    assert capstone_step is not None
+    assert len(capstone_step["topics"]) > 0
+
+
 
 
 

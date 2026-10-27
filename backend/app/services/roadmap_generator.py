@@ -1,24 +1,46 @@
 import uuid
-from typing import Dict, Any, List
+import re
+from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 from app.models import Resource, UserProfile, Resume, UserSkill
+from app.services.ai_adapter import call_llm_json
 
-def generate_personalized_roadmap(db: Session, user_id: int, goal_title: str, target_role: str = "") -> Dict[str, Any]:
-    """
-    Builds a grounded, high-value career or technical roadmap uniquely tailored
-    to the user's goal, saved resources, missing skills, and active resume.
-    """
-    profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
-    active_resume = db.query(Resume).filter(Resume.user_id == user_id, Resume.is_active == True).first()
+def _extract_user_skills(db: Session, user_id: int) -> set:
     user_skills_list = db.query(UserSkill).filter(UserSkill.user_id == user_id).all()
     user_skill_names = set(us.skill.name.lower() for us in user_skills_list if us.skill)
-
+    active_resume = db.query(Resume).filter(Resume.user_id == user_id, Resume.is_active == True).first()
     if active_resume and active_resume.parsed_data:
         parsed = active_resume.parsed_data
         for s in parsed.get("technical_skills", []) + parsed.get("frameworks", []) + parsed.get("tools", []):
             user_skill_names.add(s.lower())
+    return user_skill_names
 
-    # Get user's saved courses and internships
+def _map_saved_courses(saved_courses: List[Resource], keywords: List[str]) -> List[Dict[str, Any]]:
+    matched = []
+    seen = set()
+    for c in saved_courses:
+        if c.id in seen:
+            continue
+        c_text = f"{c.title} {c.description or ''}".lower()
+        if any(kw.lower() in c_text for kw in keywords):
+            seen.add(c.id)
+            matched.append({
+                "title": c.title,
+                "url": c.direct_url or c.source_url or "",
+                "type": "saved_course",
+                "resource_id": c.id
+            })
+    return matched
+
+async def generate_personalized_roadmap(db: Session, user_id: int, goal_title: str, target_role: str = "") -> Dict[str, Any]:
+    """
+    Builds a grounded, high-value career or technical roadmap using the structured logic
+    of roadmap.sh (sequential modules, granular subtopics, importance levels, and connected resources).
+    Tailored to user's saved courses, missing skills, and active resume.
+    """
+    user_skill_names = _extract_user_skills(db, user_id)
+
+    # Get user's saved courses and opportunities
     saved_courses = db.query(Resource).filter(
         Resource.user_id == user_id,
         Resource.type.in_(["course", "certification"]),
@@ -27,152 +49,419 @@ def generate_personalized_roadmap(db: Session, user_id: int, goal_title: str, ta
 
     saved_internships = db.query(Resource).filter(
         Resource.user_id == user_id,
-        Resource.type.in_(["internship", "job"]),
+        Resource.type.in_(["internship", "job", "hackathon"]),
         Resource.is_archived == False
     ).all()
 
     goal_lower = goal_title.lower().strip()
 
-    # Specialized Roadmap 1: Data Structures & Algorithms (DSA / Algo)
-    if any(term in goal_lower for term in ["algo", "dsa", "data structure", "leetcode", "problem solving", "competitive programming"]):
-        resolved_title = "Data Structures & Algorithms (DSA) Roadmap" if goal_lower in ("algo", "dsa", "algorithm", "algorithms") else goal_title
-        resolved_role = target_role or "Software Engineer (Algorithms & Problem Solving)"
+    # -------------------------------------------------------------
+    # 1. AI ENGINEER ROADMAP (https://roadmap.sh/ai)
+    # -------------------------------------------------------------
+    if any(term in goal_lower for term in ["ai", "artificial intelligence", "llm", "machine learning", "genai", "agent", "deep learning"]):
+        resolved_title = "AI Engineer Roadmap (roadmap.sh/ai)" if goal_lower in ("ai", "ai engineer", "artificial intelligence") else goal_title
+        resolved_role = target_role or "AI Engineer / Generative AI Specialist"
 
-        # Find any relevant courses in user's library
-        relevant_course_ids = [
-            c.id for c in saved_courses
-            if any(term in (c.title + " " + (c.description or "")).lower() for term in ["algo", "data structure", "cs", "computer science", "python", "java", "c++"])
-        ]
-        if not relevant_course_ids and saved_courses:
-            relevant_course_ids = [c.id for c in saved_courses[:2]]
-
-        steps = [
+        modules = [
             {
-                "id": str(uuid.uuid4())[:8],
-                "title": "Phase 1: Algorithmic Foundations & Complexity Analysis",
-                "description": "Master asymptotic analysis (Big-O, Big-Omega, Big-Theta), recursion trees, space/time complexity trade-offs, and bitwise operations.",
-                "resource_ids": relevant_course_ids[:1],
-                "skill_ids": [],
                 "order": 1,
-                "completed": any(s in user_skill_names for s in ["algorithms", "data structures", "dsa"])
+                "title": "1. AI Engineering Fundamentals & Pre-trained Models",
+                "description": "Differentiate AI Engineering from ML Research. Master tokenization, context windows, parameters (temperature, top-p, top-k), and pricing models.",
+                "topics": [
+                    {"name": "AI Engineer vs ML Researcher Roles", "importance": "Must Know", "completed": False},
+                    {"name": "Token Management & Context Windows", "importance": "Must Know", "completed": False},
+                    {"name": "Model Parameters: Temperature, Top-P, Top-K", "importance": "Must Know", "completed": False},
+                    {"name": "Closed vs Open Source Models (GPT-4o, Claude 3.5, Llama 3)", "importance": "Must Know", "completed": False},
+                    {"name": "Local Model Execution (Ollama, vLLM, LM Studio)", "importance": "Recommended", "completed": False}
+                ],
+                "resources": _map_saved_courses(saved_courses, ["anthropic", "google", "cloud", "model", "foundation"]) or [
+                    {"title": "roadmap.sh AI Engineer Guide", "url": "https://roadmap.sh/ai", "type": "guide"},
+                    {"title": "Anthropic API Fundamentals", "url": "https://github.com/anthropics/courses/blob/master/anthropic_api_fundamentals/README.md", "type": "course"}
+                ]
             },
             {
-                "id": str(uuid.uuid4())[:8],
-                "title": "Phase 2: Linear Data Structures & Binary Search",
-                "description": "Implement and practice Arrays, Dynamic Arrays, Strings, Linked Lists, Stacks, Queues, and Binary Search (bounds and monotonic predicates).",
-                "resource_ids": relevant_course_ids[1:2],
-                "skill_ids": [],
                 "order": 2,
-                "completed": False
+                "title": "2. Prompt Engineering & In-Context Learning",
+                "description": "Move beyond casual chat to structured production prompts. Implement few-shot examples, reasoning chains, and schema-enforced structured outputs.",
+                "topics": [
+                    {"name": "Zero-Shot & Few-Shot Prompting", "importance": "Must Know", "completed": False},
+                    {"name": "Chain-of-Thought (CoT) & Step-by-Step Reasoning", "importance": "Must Know", "completed": False},
+                    {"name": "Strict JSON Output & Schema Enforcement", "importance": "Must Know", "completed": False},
+                    {"name": "System Prompts & Formatting Delimiters", "importance": "Must Know", "completed": False},
+                    {"name": "Directional Stimulus & Meta-Prompting", "importance": "Recommended", "completed": False}
+                ],
+                "resources": _map_saved_courses(saved_courses, ["prompt", "anthropic"]) or [
+                    {"title": "Anthropic Prompt Engineering Tutorial", "url": "https://github.com/anthropics/courses/blob/master/prompt_engineering_interactive_tutorial/README.md", "type": "course"},
+                    {"title": "Real World Prompting Techniques", "url": "https://github.com/anthropics/courses/blob/master/real_world_prompting/README.md", "type": "course"}
+                ]
             },
             {
-                "id": str(uuid.uuid4())[:8],
-                "title": "Phase 3: Trees, Heaps & Prefix Structures",
-                "description": "Master Binary Trees, BST operations, traversals (BFS/DFS), Min/Max Heaps, Priority Queues, and Trie structures for prefix matching.",
-                "resource_ids": [],
-                "skill_ids": [],
                 "order": 3,
-                "completed": False
+                "title": "3. Embeddings & Vector Databases",
+                "description": "Understand dense vector representations for semantic search. Select and benchmark vector databases, distance metrics, and indexing algorithms.",
+                "topics": [
+                    {"name": "Dense Vector Representations & Cosine Similarity", "importance": "Must Know", "completed": False},
+                    {"name": "Embedding Models (text-embedding-3, Voyage AI, BGE)", "importance": "Must Know", "completed": False},
+                    {"name": "Vector DBs: ChromaDB, Pinecone, Qdrant, pgvector", "importance": "Must Know", "completed": False},
+                    {"name": "Vector Indexing (HNSW, IVFFlat, Quantization)", "importance": "Recommended", "completed": False}
+                ],
+                "resources": _map_saved_courses(saved_courses, ["data", "analytics", "vector"]) or [
+                    {"title": "ChromaDB Official Documentation", "url": "https://docs.trychroma.com/", "type": "docs"},
+                    {"title": "Pinecone Vector Search Architecture", "url": "https://docs.pinecone.io/", "type": "docs"}
+                ]
             },
             {
-                "id": str(uuid.uuid4())[:8],
-                "title": "Phase 4: Graph Algorithms & Connectivity",
-                "description": "Implement BFS, DFS, Cycle Detection, Topological Sort (Kahn's algorithm), Dijkstra's Shortest Path, and Disjoint Set Union (Union-Find).",
-                "resource_ids": [],
-                "skill_ids": [],
                 "order": 4,
-                "completed": False
+                "title": "4. Retrieval-Augmented Generation (RAG)",
+                "description": "Build end-to-end RAG pipelines connecting proprietary knowledge to LLMs with minimal hallucination.",
+                "topics": [
+                    {"name": "Document Chunking Strategies (Recursive, Semantic, Window)", "importance": "Must Know", "completed": False},
+                    {"name": "Semantic Retrieval & Top-K Sampling", "importance": "Must Know", "completed": False},
+                    {"name": "Hybrid Search (Dense Semantic + Sparse BM25 Keyword)", "importance": "Recommended", "completed": False},
+                    {"name": "Reranking Pipelines (Cohere Rerank, BGE Reranker)", "importance": "Recommended", "completed": False},
+                    {"name": "Source Attribution & Citation Provenance", "importance": "Must Know", "completed": False}
+                ],
+                "resources": [
+                    {"title": "LangChain / LlamaIndex RAG Playbook", "url": "https://docs.llamaindex.ai/", "type": "guide"}
+                ]
             },
             {
-                "id": str(uuid.uuid4())[:8],
-                "title": "Phase 5: Dynamic Programming & Backtracking",
-                "description": "Deconstruct optimal substructure with Memoization (top-down) and Tabulation (bottom-up): 1D DP, 2D Grid DP, 0/1 Knapsack, LCS, and Backtracking.",
-                "resource_ids": [],
-                "skill_ids": [],
                 "order": 5,
-                "completed": False
+                "title": "5. Autonomous AI Agents & Tool Calling",
+                "description": "Construct reasoning engines that can dynamically select tools, invoke external APIs, execute multi-step workflows, and persist state.",
+                "topics": [
+                    {"name": "Function Calling & Tool Definition Schemas", "importance": "Must Know", "completed": False},
+                    {"name": "ReAct (Reasoning + Acting) Decision Loops", "importance": "Must Know", "completed": False},
+                    {"name": "Short-Term Buffer vs Long-Term Vector Memory", "importance": "Must Know", "completed": False},
+                    {"name": "Multi-Agent Orchestration (LangGraph, CrewAI, AutoGen)", "importance": "Advanced", "completed": False},
+                    {"name": "Error Recovery & Self-Correction Loops", "importance": "Recommended", "completed": False}
+                ],
+                "resources": _map_saved_courses(saved_courses, ["tool", "anthropic"]) or [
+                    {"title": "Anthropic Tool Use Curriculum", "url": "https://github.com/anthropics/courses/blob/master/tool_use/README.md", "type": "course"}
+                ]
             },
             {
-                "id": str(uuid.uuid4())[:8],
-                "title": "Phase 6: High-Frequency Patterns & Mock Interview Rounds",
-                "description": "Solve core patterns: Two Pointers, Sliding Window, Monotonic Stack, Interval Merging, and timed 45-minute coding rounds on Blind 75 / NeetCode 150.",
-                "resource_ids": [i.id for i in saved_internships[:2]],
-                "skill_ids": [],
                 "order": 6,
-                "completed": False
+                "title": "6. Evaluation, Security & Production Guardrails",
+                "description": "Prevent regressions, defend against adversarial jailbreaks, evaluate accuracy, and trace production LLM calls.",
+                "topics": [
+                    {"name": "Automated LLM-as-a-Judge Evaluation Suites", "importance": "Must Know", "completed": False},
+                    {"name": "Prompt Injection Defenses & Input Sanitization", "importance": "Must Know", "completed": False},
+                    {"name": "Output Guardrails & PII Redaction", "importance": "Must Know", "completed": False},
+                    {"name": "LLM Observability & Tracing (LangSmith, Phoenix)", "importance": "Recommended", "completed": False}
+                ],
+                "resources": _map_saved_courses(saved_courses, ["eval", "anthropic"]) or [
+                    {"title": "Anthropic Prompt Evaluations Guide", "url": "https://github.com/anthropics/courses/blob/master/prompt_evaluations/README.md", "type": "course"}
+                ]
             }
         ]
+
+        steps = []
+        for m in modules:
+            step_id = str(uuid.uuid4())[:8]
+            res_ids = [r["resource_id"] for r in m.get("resources", []) if "resource_id" in r]
+            steps.append({
+                "id": step_id,
+                "title": m["title"],
+                "description": m["description"],
+                "topics": m["topics"],
+                "resources": m.get("resources", []),
+                "resource_ids": res_ids,
+                "skill_ids": [],
+                "order": m["order"],
+                "completed": False
+            })
 
         return {
             "goal_title": resolved_title,
             "target_role": resolved_role,
-            "description": "Comprehensive step-by-step Algorithms & Data Structures mastery roadmap covering Big-O analysis, fundamental and non-linear data structures, graph theory, dynamic programming, and interview patterns.",
+            "description": "Comprehensive roadmap modeled after roadmap.sh/ai covering pre-trained models, prompt engineering, vector databases, RAG architecture, agentic tool workflows, and safety guardrails.",
             "steps": steps
         }
 
-    # Step 1: Skill Assessment
-    known_skills_str = ", ".join([s.title() for s in list(user_skill_names)[:6]]) if user_skill_names else "Python, Git, Problem Solving"
-    step1 = {
-        "id": str(uuid.uuid4())[:8],
-        "title": "Phase 1: Baseline Skill Assessment",
-        "description": f"Verified current competencies: {known_skills_str}. Audit resume alignment against target '{goal_title}'.",
-        "resource_ids": [],
-        "skill_ids": [],
-        "order": 1,
-        "completed": True if len(user_skill_names) >= 3 else False
-    }
+    # -------------------------------------------------------------
+    # 2. DATA STRUCTURES & ALGORITHMS (roadmap.sh/datastructures-and-algorithms)
+    # -------------------------------------------------------------
+    if any(term in goal_lower for term in ["algo", "dsa", "data structure", "leetcode", "problem solving", "competitive programming"]):
+        resolved_title = "Data Structures & Algorithms (DSA) Roadmap" if goal_lower in ("algo", "dsa", "algorithm", "algorithms") else goal_title
+        resolved_role = target_role or "Software Engineer (Algorithms & Problem Solving)"
 
-    # Step 2: Targeted Learning
-    course_ids = [c.id for c in saved_courses[:3]]
-    courses_titles = ", ".join([c.title for c in saved_courses[:2]]) if saved_courses else "target technical specialization courses"
-    step2 = {
-        "id": str(uuid.uuid4())[:8],
-        "title": "Phase 2: Complete Targeted Core Courses",
-        "description": f"Close key skill gaps by working through saved resources: {courses_titles}.",
-        "resource_ids": course_ids,
-        "skill_ids": [],
-        "order": 2,
-        "completed": False
-    }
+        modules = [
+            {
+                "order": 1,
+                "title": "1. Algorithmic Complexity & Foundations",
+                "description": "Master asymptotic notation, recursive recurrence relations, space/time complexity tradeoffs, and bit manipulation primitives.",
+                "topics": [
+                    {"name": "Big-O, Big-Omega, Big-Theta Analysis", "importance": "Must Know", "completed": False},
+                    {"name": "Recursion Trees & Master Theorem", "importance": "Must Know", "completed": False},
+                    {"name": "Space & Time Tradeoffs & In-Place Algorithms", "importance": "Must Know", "completed": False},
+                    {"name": "Bitwise Operations & Masks", "importance": "Recommended", "completed": False}
+                ],
+                "resources": [
+                    {"title": "MIT 6.006 Introduction to Algorithms", "url": "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/", "type": "course"}
+                ]
+            },
+            {
+                "order": 2,
+                "title": "2. Linear Data Structures & Two Pointers",
+                "description": "Implement arrays, linked lists, stacks, and queues from scratch. Master two-pointer navigation patterns.",
+                "topics": [
+                    {"name": "Dynamic Arrays & Amortized Insertion", "importance": "Must Know", "completed": False},
+                    {"name": "Singly & Doubly Linked Lists", "importance": "Must Know", "completed": False},
+                    {"name": "Stacks & Monotonic Stack Pattern", "importance": "Must Know", "completed": False},
+                    {"name": "Queues, Circular Buffers & Deques", "importance": "Must Know", "completed": False},
+                    {"name": "Two-Pointer (Opposite Ends & Fast/Slow)", "importance": "Must Know", "completed": False}
+                ],
+                "resources": [
+                    {"title": "NeetCode Linear Data Structures", "url": "https://neetcode.io/roadmap", "type": "practice"}
+                ]
+            },
+            {
+                "order": 3,
+                "title": "3. Binary Search & Sliding Window",
+                "description": "Execute binary search on sorted sequences and abstract answer spaces. Solve contiguous subarray optimization problems.",
+                "topics": [
+                    {"name": "Binary Search on Arrays & Boundary Finding", "importance": "Must Know", "completed": False},
+                    {"name": "Binary Search on Answer / Predicate Functions", "importance": "Must Know", "completed": False},
+                    {"name": "Fixed-Size Sliding Window", "importance": "Must Know", "completed": False},
+                    {"name": "Variable-Size Sliding Window with Hash Maps", "importance": "Must Know", "completed": False}
+                ],
+                "resources": [
+                    {"title": "LeetCode Binary Search Study Plan", "url": "https://leetcode.com/studyplan/binary-search/", "type": "practice"}
+                ]
+            },
+            {
+                "order": 4,
+                "title": "4. Trees, Heaps & Prefix Structures",
+                "description": "Navigate hierarchical data structures. Implement tree traversals, priority queues, and character prefix trees.",
+                "topics": [
+                    {"name": "Binary Trees & BST Search/Insert/Delete", "importance": "Must Know", "completed": False},
+                    {"name": "Tree Traversals (DFS In/Pre/Post, BFS Level-Order)", "importance": "Must Know", "completed": False},
+                    {"name": "Min/Max Binary Heaps & Top-K Problems", "importance": "Must Know", "completed": False},
+                    {"name": "Tries (Prefix Trees) for Autocomplete & Search", "importance": "Recommended", "completed": False}
+                ],
+                "resources": [
+                    {"title": "VisuAlgo Binary Search Tree & Heap Visualizer", "url": "https://visualgo.net/en/bst", "type": "visualization"}
+                ]
+            },
+            {
+                "order": 5,
+                "title": "5. Graph Theory & Connectivity",
+                "description": "Represent networks with adjacency lists/matrices. Solve pathfinding, cycle detection, and dependency ordering.",
+                "topics": [
+                    {"name": "Breadth-First Search (BFS) for Shortest Path", "importance": "Must Know", "completed": False},
+                    {"name": "Depth-First Search (DFS) & Connected Components", "importance": "Must Know", "completed": False},
+                    {"name": "Topological Sort & Kahn's Algorithm", "importance": "Must Know", "completed": False},
+                    {"name": "Dijkstra's Shortest Path Algorithm", "importance": "Must Know", "completed": False},
+                    {"name": "Disjoint Set Union (DSU / Union-Find)", "importance": "Recommended", "completed": False}
+                ],
+                "resources": [
+                    {"title": "Algorithms, Part II (Princeton / Coursera)", "url": "https://www.coursera.org/learn/algorithms-part2", "type": "course"}
+                ]
+            },
+            {
+                "order": 6,
+                "title": "6. Dynamic Programming & Backtracking",
+                "description": "Deconstruct overlapping subproblems and optimal substructure. Transition from top-down memoization to bottom-up tabulation.",
+                "topics": [
+                    {"name": "Memoization (Top-Down) vs Tabulation (Bottom-Up)", "importance": "Must Know", "completed": False},
+                    {"name": "1D DP Patterns (Climbing Stairs, House Robber)", "importance": "Must Know", "completed": False},
+                    {"name": "2D Grid DP & Subsequences (LCS, Edit Distance)", "importance": "Must Know", "completed": False},
+                    {"name": "0/1 Knapsack & Unbounded Knapsack", "importance": "Must Know", "completed": False},
+                    {"name": "Backtracking (Subsets, Permutations, Combinations)", "importance": "Recommended", "completed": False}
+                ],
+                "resources": [
+                    {"title": "Dynamic Programming Patterns Guide", "url": "https://leetcode.com/discuss/general-discussion/458695/Dynamic-Programming-Patterns", "type": "guide"}
+                ]
+            },
+            {
+                "order": 7,
+                "title": "7. High-Frequency Patterns & Mock Rounds",
+                "description": "Synthesize patterns under timed interview conditions. Practice clean code communication and edge case handling.",
+                "topics": [
+                    {"name": "Blind 75 & NeetCode 150 High-Yield Problems", "importance": "Must Know", "completed": False},
+                    {"name": "Monotonic Queue & Interval Merging", "importance": "Must Know", "completed": False},
+                    {"name": "Timed 45-Minute Mock Technical Screenings", "importance": "Must Know", "completed": False},
+                    {"name": "Explaining Thought Process & Tradeoffs Aloud", "importance": "Must Know", "completed": False}
+                ],
+                "resources": [
+                    {"title": "Blind 75 LeetCode Questions", "url": "https://leetcode.com/discuss/general-discussion/460599/blind-75-leetcode-questions", "type": "practice"}
+                ]
+            }
+        ]
 
-    # Step 3: Practical Project
-    step3 = {
-        "id": str(uuid.uuid4())[:8],
-        "title": "Phase 3: Build & Deploy Portfolio Project",
-        "description": f"Synthesize core tools into a production-grade project with reproducible documentation, unit tests, and live deployment.",
-        "resource_ids": [],
-        "skill_ids": [],
-        "order": 3,
-        "completed": False
-    }
+        steps = []
+        for m in modules:
+            step_id = str(uuid.uuid4())[:8]
+            steps.append({
+                "id": step_id,
+                "title": m["title"],
+                "description": m["description"],
+                "topics": m["topics"],
+                "resources": m.get("resources", []),
+                "resource_ids": [],
+                "skill_ids": [],
+                "order": m["order"],
+                "completed": False
+            })
 
-    # Step 4: Shortlist & Refine Opportunities
-    internship_ids = [i.id for i in saved_internships[:4]]
-    internships_titles = ", ".join([i.title for i in saved_internships[:2]]) if saved_internships else "saved internship vacancies"
-    step4 = {
-        "id": str(uuid.uuid4())[:8],
-        "title": "Phase 4: Target Application Shortlisting",
-        "description": f"Review verified openings and align project bullet points with requirements: {internships_titles}.",
-        "resource_ids": internship_ids,
-        "skill_ids": [],
-        "order": 4,
-        "completed": False
-    }
+        return {
+            "goal_title": resolved_title,
+            "target_role": resolved_role,
+            "description": "Comprehensive Algorithms & Data Structures roadmap modeled after roadmap.sh covering algorithmic complexity, linear structures, trees, graphs, dynamic programming, and interview patterns.",
+            "steps": steps
+        }
 
-    # Step 5: Application Tracking & Interview Prep
-    step5 = {
-        "id": str(uuid.uuid4())[:8],
-        "title": "Phase 5: Applications & Technical Rounds",
-        "description": "Submit tailored applications ahead of deadlines, prepare technical DSA / system design topics, and log interview progress.",
-        "resource_ids": [],
-        "skill_ids": [],
-        "order": 5,
-        "completed": False
-    }
+    # -------------------------------------------------------------
+    # 3. DYNAMIC AI LLM GENERATOR (For custom user queries)
+    # -------------------------------------------------------------
+    system_prompt = (
+        "You are an expert curriculum developer and technical architect creating structured roadmaps modeled after roadmap.sh.\n"
+        "Generate a sequential, milestone-based learning roadmap strictly adhering to the following JSON schema:\n"
+        "{\n"
+        "  \"roadmap_title\": \"string\",\n"
+        "  \"target_role\": \"string\",\n"
+        "  \"description\": \"string\",\n"
+        "  \"modules\": [\n"
+        "    {\n"
+        "      \"title\": \"string (e.g. 1. Foundations)\",\n"
+        "      \"description\": \"string\",\n"
+        "      \"topics\": [\n"
+        "        {\n"
+        "          \"name\": \"string\",\n"
+        "          \"importance\": \"Must Know | Recommended | Advanced\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n"
+        "Rules:\n"
+        "1. Create between 5 and 7 progressive sequential modules.\n"
+        "2. Provide 3-5 specific, practical subtopics per module.\n"
+        "3. Output ONLY valid JSON matching this schema."
+    )
+    user_prompt = f"Goal / Topic: {goal_title}\nTarget Role: {target_role or goal_title}"
+
+    try:
+        llm_data = await call_llm_json(user_prompt, system_prompt)
+        if llm_data and isinstance(llm_data, dict) and "modules" in llm_data and isinstance(llm_data["modules"], list):
+            steps = []
+            for idx, mod in enumerate(llm_data["modules"]):
+                t_list = []
+                for top in mod.get("topics", []):
+                    if isinstance(top, dict):
+                        t_list.append({
+                            "name": top.get("name", "Core Topic"),
+                            "importance": top.get("importance", "Must Know"),
+                            "completed": False
+                        })
+                    elif isinstance(top, str):
+                        t_list.append({
+                            "name": top,
+                            "importance": "Must Know",
+                            "completed": False
+                        })
+
+                steps.append({
+                    "id": str(uuid.uuid4())[:8],
+                    "title": mod.get("title", f"Module {idx+1}"),
+                    "description": mod.get("description", ""),
+                    "topics": t_list,
+                    "resources": [],
+                    "resource_ids": [],
+                    "skill_ids": [],
+                    "order": idx + 1,
+                    "completed": False
+                })
+
+            return {
+                "goal_title": llm_data.get("roadmap_title", goal_title),
+                "target_role": llm_data.get("target_role", target_role or goal_title),
+                "description": llm_data.get("description", f"AI-synthesized roadmap.sh learning path for {goal_title}."),
+                "steps": steps
+            }
+    except Exception:
+        pass
+
+    # -------------------------------------------------------------
+    # 4. GENERAL FALLBACK ROADMAP.SH TEMPLATE
+    # -------------------------------------------------------------
+    default_modules = [
+        {
+            "order": 1,
+            "title": f"1. Core Competency & Foundational Architecture",
+            "description": f"Master fundamental principles, syntax, toolchain setup, and core design paradigms for {goal_title}.",
+            "topics": [
+                {"name": f"Foundations & Principles of {goal_title}", "importance": "Must Know", "completed": False},
+                {"name": "Development Environment & Tooling Setup", "importance": "Must Know", "completed": False},
+                {"name": "Standard Libraries & Core APIs", "importance": "Must Know", "completed": False},
+                {"name": "Code Organization & Best Practices", "importance": "Recommended", "completed": False}
+            ]
+        },
+        {
+            "order": 2,
+            "title": "2. Intermediate Frameworks & Data Pipelines",
+            "description": "Build end-to-end features integrating databases, external APIs, and asynchronous processing.",
+            "topics": [
+                {"name": "Data Modeling, Storage & ORMs", "importance": "Must Know", "completed": False},
+                {"name": "RESTful & Real-Time API Architecture", "importance": "Must Know", "completed": False},
+                {"name": "Authentication, Authorization & Security", "importance": "Must Know", "completed": False},
+                {"name": "State Management & Caching", "importance": "Recommended", "completed": False}
+            ]
+        },
+        {
+            "order": 3,
+            "title": "3. Production Testing, CI/CD & Deployment",
+            "description": "Automate test coverage, containerize workloads, and configure continuous integration and deployment pipelines.",
+            "topics": [
+                {"name": "Unit Testing & Automated Integration Suites", "importance": "Must Know", "completed": False},
+                {"name": "Docker Containerization & Multi-Stage Builds", "importance": "Must Know", "completed": False},
+                {"name": "CI/CD Pipeline Automation (GitHub Actions)", "importance": "Must Know", "completed": False},
+                {"name": "Cloud Deployment & Environment Variables", "importance": "Recommended", "completed": False}
+            ]
+        },
+        {
+            "order": 4,
+            "title": "4. System Performance, Scalability & Monitoring",
+            "description": "Optimize latency, implement caching tiers, configure structured logging, and ensure resilient error handling.",
+            "topics": [
+                {"name": "Performance Profiling & Bottleneck Mitigation", "importance": "Must Know", "completed": False},
+                {"name": "Structured Logging & Centralized Observability", "importance": "Must Know", "completed": False},
+                {"name": "Distributed System Patterns & Message Queues", "importance": "Advanced", "completed": False},
+                {"name": "Rate Limiting & Resilient Failure Handling", "importance": "Recommended", "completed": False}
+            ]
+        },
+        {
+            "order": 5,
+            "title": "5. Portfolio Capstone & Technical Interview Readiness",
+            "description": "Synthesize acquired skills into a production-grade portfolio project with live URL, tests, and documentation.",
+            "topics": [
+                {"name": "Production Capstone Project with Live Demo", "importance": "Must Know", "completed": False},
+                {"name": "Comprehensive README & Architecture Diagrams", "importance": "Must Know", "completed": False},
+                {"name": "System Design & Technical Deep-Dive Interview Prep", "importance": "Must Know", "completed": False},
+                {"name": "Tailored Application Submissions & Portfolio Review", "importance": "Must Know", "completed": False}
+            ]
+        }
+    ]
+
+    steps = []
+    for m in default_modules:
+        step_id = str(uuid.uuid4())[:8]
+        steps.append({
+            "id": step_id,
+            "title": m["title"],
+            "description": m["description"],
+            "topics": m["topics"],
+            "resources": [],
+            "resource_ids": [c.id for c in saved_courses[:2]],
+            "skill_ids": [],
+            "order": m["order"],
+            "completed": False
+        })
 
     return {
         "goal_title": goal_title,
         "target_role": target_role or goal_title,
-        "description": f"Custom opportunity execution plan generated for {goal_title} using {len(saved_courses)} saved courses and {len(saved_internships)} target opportunities.",
-        "steps": [step1, step2, step3, step4, step5]
+        "description": f"Custom opportunity execution plan generated for {goal_title} modeled after roadmap.sh modules and competencies.",
+        "steps": steps
     }

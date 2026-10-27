@@ -169,6 +169,20 @@ export interface SkillGapData {
   }[];
 }
 
+export interface RoadmapTopic {
+  name: string;
+  importance?: 'Must Know' | 'Recommended' | 'Advanced';
+  completed?: boolean;
+  url?: string;
+}
+
+export interface RoadmapResourceLink {
+  title: string;
+  url?: string;
+  type?: string;
+  resource_id?: number;
+}
+
 export interface RoadmapStep {
   id: string;
   title: string;
@@ -177,6 +191,8 @@ export interface RoadmapStep {
   skill_ids: number[];
   order: number;
   completed: boolean;
+  topics?: RoadmapTopic[];
+  resources?: RoadmapResourceLink[];
 }
 
 export interface Roadmap {

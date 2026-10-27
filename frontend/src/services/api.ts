@@ -189,6 +189,10 @@ export const api = {
     fetchJson<Roadmap>(`${API_BASE}/roadmaps/${roadmapId}/steps/${stepId}/toggle`, {
       method: 'POST'
     }),
+  toggleRoadmapSubtopic: (roadmapId: number, stepId: string, topicIdx: number) =>
+    fetchJson<Roadmap>(`${API_BASE}/roadmaps/${roadmapId}/steps/${stepId}/topics/${topicIdx}/toggle`, {
+      method: 'POST'
+    }),
   deleteRoadmap: (id: number) => fetchJson<any>(`${API_BASE}/roadmaps/${id}`, {
     method: 'DELETE'
   }),

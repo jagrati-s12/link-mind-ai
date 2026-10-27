@@ -20,13 +20,13 @@ def list_roadmaps(
     return roadmaps
 
 @router.post("/generate", response_model=RoadmapOut)
-def generate_roadmap(
+async def generate_roadmap(
     goal_title: str = Body(..., embed=True),
     target_role: str = Body("", embed=True),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    plan = generate_personalized_roadmap(db, current_user.id, goal_title, target_role)
+    plan = await generate_personalized_roadmap(db, current_user.id, goal_title, target_role)
     rm = Roadmap(
         user_id=current_user.id,
         goal_title=plan["goal_title"],
@@ -104,6 +104,43 @@ def toggle_step(
         s = dict(step)
         if s.get("id") == step_id:
             s["completed"] = not s.get("completed", False)
+            if "topics" in s and isinstance(s["topics"], list):
+                s["topics"] = [{**t, "completed": s["completed"]} for t in s["topics"]]
+        updated_steps.append(s)
+
+    rm.steps = updated_steps
+    db.commit()
+    db.refresh(rm)
+    return rm
+
+@router.post("/{roadmap_id}/steps/{step_id}/topics/{topic_idx}/toggle", response_model=RoadmapOut)
+def toggle_subtopic(
+    roadmap_id: int,
+    step_id: str,
+    topic_idx: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    rm = db.query(Roadmap).filter(
+        Roadmap.id == roadmap_id,
+        Roadmap.user_id == current_user.id
+    ).first()
+    if not rm:
+        raise HTTPException(status_code=404, detail="Roadmap not found.")
+
+    updated_steps = []
+    for step in rm.steps:
+        s = dict(step)
+        if s.get("id") == step_id:
+            topics = [dict(t) for t in s.get("topics", [])]
+            if 0 <= topic_idx < len(topics):
+                topics[topic_idx]["completed"] = not topics[topic_idx].get("completed", False)
+                s["topics"] = topics
+                # If all topics completed, mark parent step completed
+                if topics and all(t.get("completed", False) for t in topics):
+                    s["completed"] = True
+                elif not any(t.get("completed", False) for t in topics):
+                    s["completed"] = False
         updated_steps.append(s)
 
     rm.steps = updated_steps

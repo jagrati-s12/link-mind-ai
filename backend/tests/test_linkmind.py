@@ -706,6 +706,41 @@ def test_github_relative_links_resolution_and_blob_vs_tree():
     assert tool_course["direct_url"] == "https://github.com/anthropics/courses/blob/master/tool_use/README.md"
     assert tool_course["organization"] == "Anthropic"
 
+def test_roadmap_sh_ai_generation_and_subtopic_toggle(client, user_token):
+    """Verify that roadmap.sh/ai structured roadmaps generate modules, subtopics, and support toggling"""
+    headers = {"Authorization": f"Bearer {user_token}"}
+
+    # 1. Generate an AI Engineer roadmap using roadmap.sh logic
+    resp = client.post("/api/v1/roadmaps/generate", json={"goal_title": "AI Engineer (roadmap.sh/ai)"}, headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "roadmap.sh/ai" in data["goal_title"]
+    assert len(data["steps"]) >= 5
+
+    step1 = data["steps"][0]
+    assert "topics" in step1
+    assert len(step1["topics"]) > 0
+    assert step1["topics"][0]["importance"] in ("Must Know", "Recommended", "Advanced")
+    assert step1["completed"] is False
+    assert step1["topics"][0]["completed"] is False
+
+    roadmap_id = data["id"]
+    step_id = step1["id"]
+
+    # 2. Toggle a single subtopic
+    toggle_resp = client.post(f"/api/v1/roadmaps/{roadmap_id}/steps/{step_id}/topics/0/toggle", headers=headers)
+    assert toggle_resp.status_code == 200
+    updated_rm = toggle_resp.json()
+    assert updated_rm["steps"][0]["topics"][0]["completed"] is True
+
+    # 3. Toggle step master
+    master_toggle = client.post(f"/api/v1/roadmaps/{roadmap_id}/steps/{step_id}/toggle", headers=headers)
+    assert master_toggle.status_code == 200
+    master_rm = master_toggle.json()
+    assert master_rm["steps"][0]["completed"] is True
+    assert master_rm["steps"][0]["topics"][0]["completed"] is True
+
+
 
 
 

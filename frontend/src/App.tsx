@@ -27,6 +27,7 @@ import { Login } from './pages/Login';
 
 export const App: React.FC = () => {
   const [isCaptureOpen, setIsCaptureOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const location = useLocation();
   const queryClient = useQueryClient();
 
@@ -42,11 +43,19 @@ export const App: React.FC = () => {
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans overflow-hidden">
       {/* Sidebar navigation */}
-      <Sidebar onOpenCapture={() => setIsCaptureOpen(true)} />
+      <Sidebar
+        onOpenCapture={() => setIsCaptureOpen(true)}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
 
       {/* Main content pane */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header onOpenCapture={() => setIsCaptureOpen(true)} />
+        <Header
+          onOpenCapture={() => setIsCaptureOpen(true)}
+          isSidebarCollapsed={isSidebarCollapsed}
+          onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        />
 
         <main className="flex-1 overflow-y-auto px-6 py-8 custom-scrollbar">
           <Routes>

@@ -197,12 +197,7 @@ export const api = {
     method: 'DELETE'
   }),
 
-  // Assistant
-  askAssistant: (message: string, history?: { role: string; content: string }[]) =>
-    fetchJson<{ response: string; citations: any[]; suggested_actions: string[] }>(`${API_BASE}/assistant/chat`, {
-      method: 'POST',
-      body: JSON.stringify({ message, history })
-    }),
+  // Assistant - removed
 
   // Profile & Resume
   getProfile: () => fetchJson<UserProfile>(`${API_BASE}/profile`),

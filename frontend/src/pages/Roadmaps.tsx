@@ -7,16 +7,17 @@ import {
   ExternalLink,
   BookOpen,
   CheckCircle2,
-  Circle,
   CheckSquare,
   Square,
-  Layers,
-  Clock,
   Flame,
   ArrowRight,
   Shuffle,
   Check,
-  Plus
+  Plus,
+  GitMerge,
+  SplitSquareVertical,
+  Laptop,
+  Clock
 } from 'lucide-react';
 import { api } from '../services/api';
 import { EmptyState } from '../components/EmptyState';
@@ -26,7 +27,7 @@ export const Roadmaps: React.FC = () => {
   const queryClient = useQueryClient();
   const [goalInput, setGoalInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatorMode, setGeneratorMode] = useState<'single' | 'hybrid'>('single');
+  const [generatorMode, setGeneratorMode] = useState<'single' | 'hybrid'>('hybrid');
   const [selectedTracks, setSelectedTracks] = useState<string[]>([
     'Data Structures & Algorithms',
     'AI Engineer (roadmap.sh/ai)'
@@ -124,34 +125,6 @@ export const Roadmaps: React.FC = () => {
     }
   };
 
-  // Calculate Next Pending Task for each roadmap for the "Do Together" Focus Dashboard
-  const activeRoadmaps = roadmaps ? roadmaps.slice(0, 3) : [];
-
-  const getNextPendingTopic = (rm: Roadmap) => {
-    for (const step of rm.steps) {
-      if (!step.completed) {
-        if (step.topics && step.topics.length > 0) {
-          const pendingIdx = step.topics.findIndex((t: RoadmapTopic) => !t.completed);
-          if (pendingIdx !== -1) {
-            return {
-              stepId: step.id,
-              stepTitle: step.title,
-              topic: step.topics[pendingIdx],
-              topicIdx: pendingIdx
-            };
-          }
-        }
-        return {
-          stepId: step.id,
-          stepTitle: step.title,
-          topic: { name: step.title, importance: 'Must Know', completed: false },
-          topicIdx: -1
-        };
-      }
-    }
-    return null;
-  };
-
   return (
     <div className="space-y-8 max-w-5xl mx-auto animate-fade-in pb-16">
       {/* Page Header */}
@@ -166,35 +139,26 @@ export const Roadmaps: React.FC = () => {
             Personalized Career Roadmaps
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
-            Interactive, node-based roadmaps structured with roadmap.sh logic — sequential milestones, granular competencies, curated tutorials, and direct links to your saved courses.
+            Pursue single careers or synchronize 2–3 career tracks on the exact same timeline with interleaved milestones, side-by-side competency checks, and unified bridge capstones.
           </p>
         </div>
       </div>
 
-      {/* Generator Box with Mode Switcher */}
+      {/* Generator Box with Dual-Career / Single Mode */}
       <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-              roadmap.sh Dynamic Roadmap Generator
+            <span className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 flex items-center space-x-1.5">
+              <GitMerge className="w-4 h-4" />
+              <span>Multi-Career & Hybrid Roadmap Engine</span>
             </span>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
-              What do you want to learn?
+              {generatorMode === 'hybrid' ? 'Pursue 2 Careers on the Same Timeline' : 'What do you want to learn?'}
             </h2>
           </div>
 
           {/* Mode Switch Pills */}
           <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl self-start sm:self-auto text-xs font-medium">
-            <button
-              onClick={() => setGeneratorMode('single')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                generatorMode === 'single'
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Single Track
-            </button>
             <button
               onClick={() => setGeneratorMode('hybrid')}
               className={`px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 ${
@@ -203,8 +167,18 @@ export const Roadmaps: React.FC = () => {
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <Shuffle className="w-3.5 h-3.5" />
-              <span>Combine 2-3 Tracks</span>
+              <SplitSquareVertical className="w-3.5 h-3.5" />
+              <span>Dual-Career Timeline (Method 1)</span>
+            </button>
+            <button
+              onClick={() => setGeneratorMode('single')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                generatorMode === 'single'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Single Career
             </button>
           </div>
         </div>
@@ -232,7 +206,7 @@ export const Roadmaps: React.FC = () => {
             </form>
 
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-[11px] text-slate-400">Popular roadmaps:</span>
+              <span className="text-[11px] text-slate-400">Popular single roadmaps:</span>
               {[
                 'AI Engineer (roadmap.sh/ai)',
                 'Data Structures & Algorithms',
@@ -251,26 +225,58 @@ export const Roadmaps: React.FC = () => {
             </div>
           </div>
         ) : (
-          /* Mode B: Combine 2-3 Tracks Together (Hybrid Roadmap) */
+          /* Mode B: Dual-Career Synchronized Timeline (Method 1) */
           <div className="space-y-4">
-            <div className="p-4 rounded-2xl bg-brand-50/50 dark:bg-brand-950/30 border border-brand-200/60 dark:border-brand-900/60 flex items-start space-x-3">
-              <Shuffle className="w-5 h-5 text-brand-600 dark:text-brand-400 shrink-0 mt-0.5" />
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 border border-blue-200/70 dark:border-blue-900/50 flex items-start space-x-3.5">
+              <div className="p-2 rounded-xl bg-blue-600 text-white shrink-0 mt-0.5">
+                <GitMerge className="w-4 h-4" />
+              </div>
               <div>
-                <h4 className="text-xs font-bold text-brand-900 dark:text-brand-200">
-                  Interleaved Multi-Track Learning
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                  Dual-Career Same-Timeline Architecture
                 </h4>
                 <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">
-                  Select 2 or 3 tracks to synthesize an integrated hybrid roadmap. It balances daily morning problem-solving drills with afternoon domain engineering, culminating in a single bridge capstone project.
+                  Select two careers (e.g. <b>Data Structures & Algorithms</b> + <b>AI Engineer</b>). The engine merges both paths onto a <b>single synchronized timeline</b> so you work through matched milestones side-by-side each month and build one unified bridge capstone.
                 </p>
               </div>
             </div>
 
-            {/* Track Selector Chips */}
+            {/* Popular Career Pairs */}
             <div className="space-y-2">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                Quick 1-Click Dual-Career Pairs:
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  ['Data Structures & Algorithms', 'AI Engineer (roadmap.sh/ai)'],
+                  ['Core Backend SDE', 'Cloud & DevOps'],
+                  ['Full Stack Developer', 'AI Engineer (roadmap.sh/ai)'],
+                  ['Data Structures & Algorithms', 'Core Backend SDE']
+                ].map(([c1, c2], idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setSelectedTracks([c1, c2])}
+                    className={`text-[11px] font-medium px-3 py-1.5 rounded-xl border transition-all ${
+                      selectedTracks.includes(c1) && selectedTracks.includes(c2) && selectedTracks.length === 2
+                        ? 'bg-brand-600 text-white border-brand-600 font-bold shadow-xs'
+                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-brand-400'
+                    }`}
+                  >
+                    {c1.replace(/\s*\(.*?\)/, '')} + {c2.replace(/\s*\(.*?\)/, '')}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Select 2 Careers Grid */}
+            <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between text-xs font-medium">
-                <span className="text-slate-600 dark:text-slate-300">Choose 2 or 3 tracks to do together:</span>
+                <span className="text-slate-700 dark:text-slate-300">
+                  Or pick any 2 careers to sync:
+                </span>
                 <span className="text-brand-600 dark:text-brand-400 font-bold">
-                  {selectedTracks.length} / 3 selected
+                  {selectedTracks.length} / 2 selected
                 </span>
               </div>
 
@@ -294,7 +300,7 @@ export const Roadmaps: React.FC = () => {
                           : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
                       }`}
                     >
-                      <span>{track}</span>
+                      <span className="truncate pr-1">{track}</span>
                       <div className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 border ${
                         isChecked ? 'bg-brand-600 border-brand-600 text-white' : 'border-slate-300 dark:border-slate-600'
                       }`}>
@@ -312,7 +318,7 @@ export const Roadmaps: React.FC = () => {
                 type="text"
                 value={customTrackInput}
                 onChange={(e) => setCustomTrackInput(e.target.value)}
-                placeholder="Or add a custom track (e.g. Rust, Cybersecurity)..."
+                placeholder="Or type a custom career (e.g. Rust, Mobile iOS)..."
                 disabled={selectedTracks.length >= 3}
                 className="flex-1 px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500 disabled:opacity-50"
               />
@@ -322,7 +328,7 @@ export const Roadmaps: React.FC = () => {
                 className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center space-x-1"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Add Track</span>
+                <span>Add Career</span>
               </button>
             </form>
 
@@ -331,13 +337,13 @@ export const Roadmaps: React.FC = () => {
               <button
                 onClick={handleGenerateHybrid}
                 disabled={isGenerating || selectedTracks.length < 2}
-                className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm px-6 py-3 rounded-2xl shadow-sm transition-all"
+                className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm px-7 py-3 rounded-2xl shadow-sm transition-all"
               >
-                <Sparkles className="w-4 h-4" />
+                <GitMerge className="w-4 h-4" />
                 <span>
                   {isGenerating
-                    ? 'Synthesizing Hybrid Roadmap...'
-                    : `Generate Combined Roadmap (${selectedTracks.length} Tracks)`}
+                    ? 'Synthesizing Dual-Career Timeline...'
+                    : `Generate Synchronized Timeline (${selectedTracks.map(t => t.replace(/\s*\(.*?\)/, '')).join(' + ')})`}
                 </span>
               </button>
             </div>
@@ -345,114 +351,15 @@ export const Roadmaps: React.FC = () => {
         )}
       </div>
 
-      {/* "DO TOGETHER" / PARALLEL EXECUTION WORKSPACE */}
-      {activeRoadmaps.length >= 2 && (
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 sm:p-8 rounded-3xl shadow-md border border-slate-700/80 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-700/60">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-2xl bg-brand-500/20 border border-brand-400/40 flex items-center justify-center text-brand-400">
-                <Flame className="w-5 h-5 text-amber-400" />
-              </div>
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                  Parallel Execution Mode
-                </span>
-                <h3 className="text-lg font-bold text-white">
-                  Today's Multi-Track Action Plan (Do Together)
-                </h3>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2 text-xs text-slate-300 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
-              <Clock className="w-3.5 h-3.5 text-brand-400" />
-              <span>Recommended Daily Split: <b>2.5 Hours</b></span>
-            </div>
-          </div>
-
-          <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
-            <b>How to do 2-3 things together without burnout:</b> Alternate daily focus between mental drills and project building. Complete one pending milestone from each active track below:
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-            {activeRoadmaps.map((rm, idx) => {
-              const pending = getNextPendingTopic(rm);
-              const trackRole = idx === 0 ? 'Morning Drill (45m)' : idx === 1 ? 'Afternoon Deep Dive (1h)' : 'Evening Review (45m)';
-              const badgeColor = idx === 0 ? 'text-amber-400 border-amber-400/40 bg-amber-400/10' : idx === 1 ? 'text-sky-400 border-sky-400/40 bg-sky-400/10' : 'text-purple-400 border-purple-400/40 bg-purple-400/10';
-
-              return (
-                <div
-                  key={rm.id}
-                  className="p-5 rounded-2xl bg-slate-800/70 border border-slate-700/90 flex flex-col justify-between space-y-4 hover:border-slate-600 transition-colors"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${badgeColor}`}>
-                        {trackRole}
-                      </span>
-                      <span className="text-[11px] text-slate-400">Track #{idx + 1}</span>
-                    </div>
-
-                    <h4 className="text-sm font-bold text-white truncate" title={rm.goal_title}>
-                      {rm.goal_title}
-                    </h4>
-
-                    {pending ? (
-                      <div className="pt-2 space-y-1.5">
-                        <span className="text-[11px] text-slate-400 block font-medium">Next Milestone:</span>
-                        <div
-                          onClick={() => {
-                            if (pending.topicIdx >= 0) {
-                              toggleTopicMutation.mutate({
-                                roadmapId: rm.id,
-                                stepId: pending.stepId,
-                                topicIdx: pending.topicIdx
-                              });
-                            } else {
-                              toggleStepMutation.mutate({
-                                roadmapId: rm.id,
-                                stepId: pending.stepId
-                              });
-                            }
-                          }}
-                          className="flex items-start space-x-2.5 p-3 rounded-xl bg-slate-900/80 border border-slate-700 hover:border-brand-400 cursor-pointer transition-all"
-                        >
-                          <Square className="w-4 h-4 text-brand-400 mt-0.5 shrink-0" />
-                          <div className="text-xs font-semibold text-slate-200 leading-tight">
-                            {pending.topic.name}
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center space-x-2 text-xs text-emerald-400 pt-3">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>All milestones complete!</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <a
-                    href={`#roadmap-${rm.id}`}
-                    className="inline-flex items-center space-x-1 text-xs text-slate-400 hover:text-white font-medium transition-colors pt-1"
-                  >
-                    <span>View Full Track</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </a>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Roadmaps List */}
+      {/* Roadmaps List (renders single or synchronized dual-career timeline) */}
       {(!roadmaps || roadmaps.length === 0) ? (
         <EmptyState
           icon={Map}
           title="No career roadmaps generated yet"
-          description="Type in a career goal above (like 'AI Engineer' or 'Data Structures & Algorithms') to generate a step-by-step roadmap connected to your saved courses and vacancies."
+          description="Select 2 careers above to synthesize an integrated dual-career timeline, or generate a single career roadmap."
         />
       ) : (
-        <div className="space-y-10">
+        <div className="space-y-12">
           {roadmaps.map((rm) => {
             const allTopics = rm.steps.flatMap((s: RoadmapStep) => s.topics || []);
             const hasTopics = allTopics.length > 0;
@@ -461,6 +368,7 @@ export const Roadmaps: React.FC = () => {
               : rm.steps.filter((s: RoadmapStep) => s.completed).length;
             const totalCount = hasTopics ? allTopics.length : (rm.steps.length || 1);
             const progressPct = Math.round((completedCount / (totalCount || 1)) * 100);
+            const isHybrid = rm.goal_title.includes('+') || rm.goal_title.toLowerCase().includes('hybrid');
 
             return (
               <div
@@ -472,8 +380,12 @@ export const Roadmaps: React.FC = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
-                        {rm.target_role || 'Target Role'}
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                        isHybrid
+                          ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200/60 dark:border-purple-800/60'
+                          : 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border-blue-200/60 dark:border-blue-800/60'
+                      }`}>
+                        {isHybrid ? 'Dual-Career Synchronized Timeline' : (rm.target_role || 'Target Role')}
                       </span>
                     </div>
                     <h3 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
@@ -490,7 +402,7 @@ export const Roadmaps: React.FC = () => {
                         {progressPct}% Complete
                       </span>
                       <span className="block text-[11px] text-slate-400">
-                        {completedCount} of {totalCount} {hasTopics ? 'topics' : 'milestones'}
+                        {completedCount} of {totalCount} {hasTopics ? 'competencies' : 'milestones'}
                       </span>
                     </div>
 
@@ -507,7 +419,11 @@ export const Roadmaps: React.FC = () => {
                 {/* Progress Bar */}
                 <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
                   <div
-                    className="bg-gradient-to-r from-brand-600 to-indigo-600 h-full rounded-full transition-all duration-300"
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      isHybrid
+                        ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600'
+                        : 'bg-gradient-to-r from-brand-600 to-indigo-600'
+                    }`}
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
@@ -517,6 +433,28 @@ export const Roadmaps: React.FC = () => {
                   {rm.steps.map((step: RoadmapStep, sIdx: number) => {
                     const stepTopics = step.topics || [];
                     const stepCompletedTopics = stepTopics.filter((t: RoadmapTopic) => t.completed).length;
+
+                    // Detect Dual-Career Split for this step
+                    const stepTracks = step.tracks || [];
+                    const t1 = stepTracks[0];
+                    const t2 = stepTracks[1];
+
+                    // Partition topics into Career 1, Career 2, and Shared/Capstone
+                    const t1Topics: { topic: RoadmapTopic; idx: number }[] = [];
+                    const t2Topics: { topic: RoadmapTopic; idx: number }[] = [];
+                    const sharedTopics: { topic: RoadmapTopic; idx: number }[] = [];
+
+                    stepTopics.forEach((topic: RoadmapTopic, tIdx: number) => {
+                      if (t1 && (topic.track === t1 || topic.name.startsWith(`[${t1}]`))) {
+                        t1Topics.push({ topic, idx: tIdx });
+                      } else if (t2 && (topic.track === t2 || topic.name.startsWith(`[${t2}]`))) {
+                        t2Topics.push({ topic, idx: tIdx });
+                      } else {
+                        sharedTopics.push({ topic, idx: tIdx });
+                      }
+                    });
+
+                    const hasDualSplit = t1 && t2 && (t1Topics.length > 0 || t2Topics.length > 0);
 
                     return (
                       <div key={step.id} className="relative flex items-start space-x-4 sm:space-x-5 group">
@@ -559,7 +497,7 @@ export const Roadmaps: React.FC = () => {
 
                             {stepTopics.length > 0 && (
                               <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
-                                {stepCompletedTopics} / {stepTopics.length} topics
+                                {stepCompletedTopics} / {stepTopics.length} competencies
                               </span>
                             )}
                           </div>
@@ -568,51 +506,192 @@ export const Roadmaps: React.FC = () => {
                             {step.description}
                           </p>
 
-                          {/* Subtopics Checklist (roadmap.sh node competencies) */}
-                          {stepTopics.length > 0 && (
-                            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                Core Competencies & Subtopics
-                              </span>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
-                                {stepTopics.map((topic: RoadmapTopic, tIdx: number) => (
-                                  <div
-                                    key={tIdx}
-                                    onClick={() =>
-                                      toggleTopicMutation.mutate({
-                                        roadmapId: rm.id,
-                                        stepId: step.id,
-                                        topicIdx: tIdx
-                                      })
-                                    }
-                                    className={`flex items-center justify-between p-2.5 rounded-xl border text-xs cursor-pointer transition-colors ${
-                                      topic.completed
-                                        ? 'bg-slate-100/60 dark:bg-slate-800/40 border-slate-200/50 dark:border-slate-800 text-slate-400 line-through'
-                                        : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 hover:border-brand-500/60'
-                                    }`}
-                                  >
-                                    <div className="flex items-center space-x-2 truncate pr-2">
-                                      {topic.completed ? (
-                                        <CheckSquare className="w-4 h-4 text-emerald-500 shrink-0" />
-                                      ) : (
-                                        <Square className="w-4 h-4 text-slate-400 shrink-0" />
-                                      )}
-                                      <span className="truncate font-medium">{topic.name}</span>
-                                    </div>
-
-                                    {topic.importance && (
-                                      <span
-                                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap shrink-0 ${getImportanceBadge(
-                                          topic.importance
-                                        )}`}
+                          {/* DUAL-CAREER SPLIT VIEW (On the SAME Timeline Node) */}
+                          {hasDualSplit ? (
+                            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                              {/* Shared Cadence Topics if any */}
+                              {sharedTopics.length > 0 && (
+                                <div className="space-y-1.5 pb-1">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 flex items-center space-x-1">
+                                    <Clock className="w-3 h-3 mr-1" />
+                                    Synchronized Study Cadence & Strategy
+                                  </span>
+                                  <div className="grid grid-cols-1 gap-2">
+                                    {sharedTopics.map(({ topic, idx: tIdx }) => (
+                                      <div
+                                        key={tIdx}
+                                        onClick={() =>
+                                          toggleTopicMutation.mutate({
+                                            roadmapId: rm.id,
+                                            stepId: step.id,
+                                            topicIdx: tIdx
+                                          })
+                                        }
+                                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs cursor-pointer transition-colors ${
+                                          topic.completed
+                                            ? 'bg-slate-100/60 dark:bg-slate-800/40 border-slate-200/50 dark:border-slate-800 text-slate-400 line-through'
+                                            : 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/70 dark:border-amber-800/50 text-slate-800 dark:text-slate-200 hover:border-amber-400'
+                                        }`}
                                       >
-                                        {topic.importance}
-                                      </span>
-                                    )}
+                                        <div className="flex items-center space-x-2 truncate pr-2">
+                                          {topic.completed ? (
+                                            <CheckSquare className="w-4 h-4 text-emerald-500 shrink-0" />
+                                          ) : (
+                                            <Square className="w-4 h-4 text-amber-500 shrink-0" />
+                                          )}
+                                          <span className="truncate font-medium">{topic.name}</span>
+                                        </div>
+                                        {topic.importance && (
+                                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap shrink-0 ${getImportanceBadge(topic.importance)}`}>
+                                            {topic.importance}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
                                   </div>
-                                ))}
+                                </div>
+                              )}
+
+                              {/* Two Columns Side-by-Side: Career 1 and Career 2 */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                                {/* Career 1 Column */}
+                                <div className="p-3.5 rounded-2xl bg-blue-50/40 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/50 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300 flex items-center space-x-1">
+                                      <Laptop className="w-3.5 h-3.5 mr-1 text-blue-600" />
+                                      {t1}
+                                    </span>
+                                    <span className="text-[10px] font-semibold text-blue-600/80 dark:text-blue-400/80">Career 1</span>
+                                  </div>
+
+                                  <div className="space-y-1.5">
+                                    {t1Topics.map(({ topic, idx: tIdx }) => (
+                                      <div
+                                        key={tIdx}
+                                        onClick={() =>
+                                          toggleTopicMutation.mutate({
+                                            roadmapId: rm.id,
+                                            stepId: step.id,
+                                            topicIdx: tIdx
+                                          })
+                                        }
+                                        className={`flex items-center justify-between p-2 rounded-xl border text-xs cursor-pointer transition-colors ${
+                                          topic.completed
+                                            ? 'bg-slate-100/60 dark:bg-slate-800/40 border-slate-200/50 dark:border-slate-800 text-slate-400 line-through'
+                                            : 'bg-white dark:bg-slate-900 border-blue-200/80 dark:border-blue-800/60 text-slate-800 dark:text-slate-200 hover:border-blue-500'
+                                        }`}
+                                      >
+                                        <div className="flex items-center space-x-2 truncate pr-2">
+                                          {topic.completed ? (
+                                            <CheckSquare className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                          ) : (
+                                            <Square className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                          )}
+                                          <span className="truncate font-medium">{topic.name.replace(`[${t1}]`, '').trim()}</span>
+                                        </div>
+                                        {topic.importance && (
+                                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap shrink-0 ${getImportanceBadge(topic.importance)}`}>
+                                            {topic.importance}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Career 2 Column */}
+                                <div className="p-3.5 rounded-2xl bg-purple-50/40 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-900/50 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 flex items-center space-x-1">
+                                      <Sparkles className="w-3.5 h-3.5 mr-1 text-purple-600" />
+                                      {t2}
+                                    </span>
+                                    <span className="text-[10px] font-semibold text-purple-600/80 dark:text-purple-400/80">Career 2</span>
+                                  </div>
+
+                                  <div className="space-y-1.5">
+                                    {t2Topics.map(({ topic, idx: tIdx }) => (
+                                      <div
+                                        key={tIdx}
+                                        onClick={() =>
+                                          toggleTopicMutation.mutate({
+                                            roadmapId: rm.id,
+                                            stepId: step.id,
+                                            topicIdx: tIdx
+                                          })
+                                        }
+                                        className={`flex items-center justify-between p-2 rounded-xl border text-xs cursor-pointer transition-colors ${
+                                          topic.completed
+                                            ? 'bg-slate-100/60 dark:bg-slate-800/40 border-slate-200/50 dark:border-slate-800 text-slate-400 line-through'
+                                            : 'bg-white dark:bg-slate-900 border-purple-200/80 dark:border-purple-800/60 text-slate-800 dark:text-slate-200 hover:border-purple-500'
+                                        }`}
+                                      >
+                                        <div className="flex items-center space-x-2 truncate pr-2">
+                                          {topic.completed ? (
+                                            <CheckSquare className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                          ) : (
+                                            <Square className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                                          )}
+                                          <span className="truncate font-medium">{topic.name.replace(`[${t2}]`, '').trim()}</span>
+                                        </div>
+                                        {topic.importance && (
+                                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap shrink-0 ${getImportanceBadge(topic.importance)}`}>
+                                            {topic.importance}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               </div>
                             </div>
+                          ) : (
+                            /* Standard Single-Track Grid */
+                            stepTopics.length > 0 && (
+                              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                  Core Competencies & Subtopics
+                                </span>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
+                                  {stepTopics.map((topic: RoadmapTopic, tIdx: number) => (
+                                    <div
+                                      key={tIdx}
+                                      onClick={() =>
+                                        toggleTopicMutation.mutate({
+                                          roadmapId: rm.id,
+                                          stepId: step.id,
+                                          topicIdx: tIdx
+                                        })
+                                      }
+                                      className={`flex items-center justify-between p-2.5 rounded-xl border text-xs cursor-pointer transition-colors ${
+                                        topic.completed
+                                          ? 'bg-slate-100/60 dark:bg-slate-800/40 border-slate-200/50 dark:border-slate-800 text-slate-400 line-through'
+                                          : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 hover:border-brand-500/60'
+                                      }`}
+                                    >
+                                      <div className="flex items-center space-x-2 truncate pr-2">
+                                        {topic.completed ? (
+                                          <CheckSquare className="w-4 h-4 text-emerald-500 shrink-0" />
+                                        ) : (
+                                          <Square className="w-4 h-4 text-slate-400 shrink-0" />
+                                        )}
+                                        <span className="truncate font-medium">{topic.name}</span>
+                                      </div>
+
+                                      {topic.importance && (
+                                        <span
+                                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap shrink-0 ${getImportanceBadge(
+                                            topic.importance
+                                          )}`}
+                                        >
+                                          {topic.importance}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )
                           )}
 
                           {/* Curated Resources / Saved Courses */}

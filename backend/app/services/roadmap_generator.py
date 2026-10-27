@@ -83,14 +83,16 @@ async def generate_personalized_roadmap(db: Session, user_id: int, goal_title: s
         modules = [
             {
                 "order": 1,
-                "title": "1. Multi-Track Foundations & Study Time-Split",
-                "description": f"Establish an interleaved daily study cadence to pursue {track_str} simultaneously without burnout.",
+                "title": "1. Synchronized Foundations & Study Cadence",
+                "description": f"Establish an interleaved daily cadence to advance both {t1} and {t2} simultaneously on the same timeline.",
+                "is_multitrack": True,
+                "tracks": [t1, t2] + ([t3] if t3 else []),
                 "topics": [
-                    {"name": f"Daily Time-Split Cadence: Morning Drills ({t1}) + Evening Building ({t2})", "importance": "Must Know", "completed": False},
-                    {"name": "Unified Workspace & Multi-Repository Version Control Setup", "importance": "Must Know", "completed": False},
-                    {"name": f"[{t1}] Core Fundamentals, Toolchain & Syntax Essentials", "importance": "Must Know", "completed": False},
-                    {"name": f"[{t2}] Base Architecture, Environment & Runtime Setup", "importance": "Must Know", "completed": False},
-                    {"name": "Spaced Repetition & Daily Habit Tracking Strategy", "importance": "Recommended", "completed": False}
+                    {"name": f"Daily Time-Split: Morning 45m ({t1}) + Evening 90m ({t2})", "importance": "Must Know", "completed": False, "track": "Cadence"},
+                    {"name": "Multi-Repo Git Workspace & Monorepo Environment Setup", "importance": "Must Know", "completed": False, "track": "Environment"},
+                    {"name": f"[{t1}] Core Foundations, Toolchain & Syntax Primitives", "importance": "Must Know", "completed": False, "track": t1},
+                    {"name": f"[{t2}] Architecture Foundations, Runtime & Provider APIs", "importance": "Must Know", "completed": False, "track": t2},
+                    {"name": "Interleaved Spaced Repetition to Prevent Cognitive Interference", "importance": "Recommended", "completed": False, "track": "Strategy"}
                 ],
                 "resources": matched_courses[:2] or [
                     {"title": f"roadmap.sh {t1} Guide", "url": "https://roadmap.sh", "type": "guide"},
@@ -101,23 +103,27 @@ async def generate_personalized_roadmap(db: Session, user_id: int, goal_title: s
                 "order": 2,
                 "title": "2. Parallel Core Competencies & Daily Drills",
                 "description": f"Progress through the fundamental structures of {t1} while building core modules in {t2}.",
+                "is_multitrack": True,
+                "tracks": [t1, t2] + ([t3] if t3 else []),
                 "topics": [
-                    {"name": f"[{t1}] Core Linear Structures & Time/Space Complexity", "importance": "Must Know", "completed": False},
-                    {"name": f"[{t2}] Data Modeling, API Endpoints & Foundation Schemas", "importance": "Must Know", "completed": False},
-                    {"name": f"[{t1}] Two-Pointer & Binary Search Optimization Techniques", "importance": "Must Know", "completed": False},
-                    {"name": f"[{t2}] State Management, Vector Stores, or Containerization", "importance": "Must Know", "completed": False}
-                ] + ([{"name": f"[{t3}] Initial Tooling & Core Primitives", "importance": "Recommended", "completed": False}] if t3 else []),
+                    {"name": f"[{t1}] Linear Data Structures, Stacks & Complexity Limits", "importance": "Must Know", "completed": False, "track": t1},
+                    {"name": f"[{t2}] Data Modeling, API Endpoints & Foundation Schemas", "importance": "Must Know", "completed": False, "track": t2},
+                    {"name": f"[{t1}] Two-Pointer & Binary Search Optimization Techniques", "importance": "Must Know", "completed": False, "track": t1},
+                    {"name": f"[{t2}] State Management, Vector Stores, or Containerization", "importance": "Must Know", "completed": False, "track": t2}
+                ] + ([{"name": f"[{t3}] Initial Tooling & Core Primitives", "importance": "Recommended", "completed": False, "track": t3}] if t3 else []),
                 "resources": matched_courses[2:4]
             },
             {
                 "order": 3,
                 "title": "3. Intermediate Deep-Dives & System Scalability",
-                "description": f"Scale complexity across both tracks with non-linear patterns, caching tiers, and pipeline automation.",
+                "description": f"Scale complexity across both careers with non-linear patterns, caching tiers, and pipeline automation.",
+                "is_multitrack": True,
+                "tracks": [t1, t2] + ([t3] if t3 else []),
                 "topics": [
-                    {"name": f"[{t1}] Hierarchical Trees, Heaps & Prefix Search Structures", "importance": "Must Know", "completed": False},
-                    {"name": f"[{t2}] Caching Tiers (Redis), RAG Pipelines, or Cloud Services", "importance": "Must Know", "completed": False},
-                    {"name": f"[{t1}] Sliding Window & Monotonic Stack Problem Sets", "importance": "Must Know", "completed": False},
-                    {"name": f"[{t2}] Asynchronous Workers, Message Queues & Fault Tolerance", "importance": "Must Know", "completed": False}
+                    {"name": f"[{t1}] Hierarchical Trees, Heaps & Prefix Search Structures", "importance": "Must Know", "completed": False, "track": t1},
+                    {"name": f"[{t2}] Caching Tiers (Redis), RAG Pipelines, or Cloud Services", "importance": "Must Know", "completed": False, "track": t2},
+                    {"name": f"[{t1}] Sliding Window & Monotonic Stack Problem Sets", "importance": "Must Know", "completed": False, "track": t1},
+                    {"name": f"[{t2}] Asynchronous Workers, Message Queues & Fault Tolerance", "importance": "Must Know", "completed": False, "track": t2}
                 ],
                 "resources": matched_courses[4:6]
             },
@@ -125,35 +131,42 @@ async def generate_personalized_roadmap(db: Session, user_id: int, goal_title: s
                 "order": 4,
                 "title": "4. Advanced Graph Algorithms & Production Systems",
                 "description": f"Conquer advanced graph algorithms and dynamic programming while hardening {t2} for production scale.",
+                "is_multitrack": True,
+                "tracks": [t1, t2] + ([t3] if t3 else []),
                 "topics": [
-                    {"name": f"[{t1}] Graph Traversals (BFS, DFS, Cycle Detection, Dijkstra)", "importance": "Must Know", "completed": False},
-                    {"name": f"[{t1}] Dynamic Programming (Memoization vs Bottom-Up Tabulation)", "importance": "Must Know", "completed": False},
-                    {"name": f"[{t2}] Microservices, Multi-Agent Loops, or Kubernetes Orchestration", "importance": "Must Know", "completed": False},
-                    {"name": "System Design: Latency, High-Throughput & Failure Modes", "importance": "Must Know", "completed": False}
+                    {"name": f"[{t1}] Graph Traversals (BFS, DFS, Cycle Detection, Dijkstra)", "importance": "Must Know", "completed": False, "track": t1},
+                    {"name": f"[{t1}] Dynamic Programming (Memoization vs Bottom-Up Tabulation)", "importance": "Must Know", "completed": False, "track": t1},
+                    {"name": f"[{t2}] Microservices, Multi-Agent Loops, or Kubernetes Orchestration", "importance": "Must Know", "completed": False, "track": t2},
+                    {"name": "System Design: Latency, High-Throughput & Failure Modes", "importance": "Must Know", "completed": False, "track": "System Design"}
                 ],
                 "resources": []
             },
             {
                 "order": 5,
-                "title": "5. The Bridge Capstone: Unifying All Tracks",
-                "description": f"The key to mastering multiple tracks: Build ONE production-grade application that brings together {track_str} into a flagship portfolio piece.",
+                "title": "5. The Convergence Bridge: Unified Dual-Career Capstone",
+                "description": f"The ultimate multi-career multiplier: Build ONE flagship production system that combines {t1} with {t2} on the same timeline.",
+                "is_multitrack": True,
+                "tracks": [t1, t2] + ([t3] if t3 else []),
                 "topics": [
-                    {"name": f"Architecture: Design a High-Performance System Combining {t1} + {t2}", "importance": "Must Know", "completed": False},
-                    {"name": f"Core Implementation: Algorithmic Backend with {t2} Integration", "importance": "Must Know", "completed": False},
-                    {"name": "Benchmarking & Profiling: Optimize Response Times & Resource Footprint", "importance": "Recommended", "completed": False},
-                    {"name": "Automated Testing & CI/CD Cloud Deployment with Live Demo URL", "importance": "Must Know", "completed": False}
-                ] + ([{"name": f"Incorporate {t3} for End-to-End Infrastructure", "importance": "Recommended", "completed": False}] if t3 else []),
+                    {"name": f"System Architecture: Design a Dual-Discipline Architecture ({t1} + {t2})", "importance": "Must Know", "completed": False, "track": "Convergence"},
+                    {"name": f"Algorithmic Core: Implement High-Performance Logic in {t1}", "importance": "Must Know", "completed": False, "track": t1},
+                    {"name": f"Domain Integration: Integrate Models, APIs & Services in {t2}", "importance": "Must Know", "completed": False, "track": t2},
+                    {"name": "Stress-Testing: Benchmark Latency, Memory Footprint & Throughput", "importance": "Recommended", "completed": False, "track": "Quality"},
+                    {"name": "Public Release: Automated CI/CD Cloud Deployment with Live Demo URL", "importance": "Must Know", "completed": False, "track": "Deployment"}
+                ],
                 "resources": []
             },
             {
                 "order": 6,
-                "title": "6. Cross-Discipline Interview & Career Readiness",
-                "description": "Synthesize interview readiness across all pursued tracks and position your multi-disciplinary advantage on resumes.",
+                "title": "6. Dual-Career Technical Screenings & Applications",
+                "description": "Synthesize interview readiness across both target careers and articulate your dual-track competency to recruiters.",
+                "is_multitrack": True,
+                "tracks": [t1, t2] + ([t3] if t3 else []),
                 "topics": [
-                    {"name": f"[{t1}] Timed 45-Minute Coding Rounds on Blind 75 / NeetCode 150", "importance": "Must Know", "completed": False},
-                    {"name": f"[{t2}] Technical Architecture Defense & Live System Deep-Dives", "importance": "Must Know", "completed": False},
-                    {"name": f"Resume Alignment: Positioning {track_str} Dual-Track Competency to Recruiters", "importance": "Must Know", "completed": False},
-                    {"name": "Target Opportunities Outreach & Technical Portfolio Presentation", "importance": "Must Know", "completed": False}
+                    {"name": f"[{t1}] Timed 45-Minute Coding Rounds on Blind 75 / NeetCode 150", "importance": "Must Know", "completed": False, "track": t1},
+                    {"name": f"[{t2}] Technical Architecture Defense & Live System Deep-Dives", "importance": "Must Know", "completed": False, "track": t2},
+                    {"name": f"Dual-Career Resume: Highlighting Cross-Disciplinary Advantage", "importance": "Must Know", "completed": False, "track": "Career"},
+                    {"name": "Target Vacancy Shortlisting across Both Career Paths", "importance": "Must Know", "completed": False, "track": "Applications"}
                 ],
                 "resources": [
                     {"title": "Tech Interview Handbook", "url": "https://www.techinterviewhandbook.org/", "type": "guide"}
@@ -168,6 +181,8 @@ async def generate_personalized_roadmap(db: Session, user_id: int, goal_title: s
                 "id": step_id,
                 "title": m["title"],
                 "description": m["description"],
+                "is_multitrack": True,
+                "tracks": m["tracks"],
                 "topics": m["topics"],
                 "resources": m.get("resources", []),
                 "resource_ids": [r["resource_id"] for r in m.get("resources", []) if "resource_id" in r],

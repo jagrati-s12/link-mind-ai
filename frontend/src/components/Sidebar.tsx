@@ -10,7 +10,6 @@ import {
   GitFork,
   Map,
   CheckSquare,
-  Bot,
   UserCheck,
   Settings,
   Plus,
@@ -43,7 +42,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenCapture }) => {
     { to: '/skills', label: 'Skill Map', icon: GitFork },
     { to: '/roadmaps', label: 'My Roadmaps', icon: Map },
     { to: '/applications', label: 'Internship Tracker', icon: CheckSquare },
-    { to: '/assistant', label: 'AI Assistant', icon: Bot },
     { to: '/profile', label: 'Profile & Resume', icon: UserCheck },
     { to: '/settings', label: 'Settings', icon: Settings },
   ];

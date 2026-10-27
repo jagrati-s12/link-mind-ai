@@ -174,6 +174,7 @@ export interface RoadmapTopic {
   importance?: 'Must Know' | 'Recommended' | 'Advanced';
   completed?: boolean;
   url?: string;
+  track?: string;
 }
 
 export interface RoadmapResourceLink {
@@ -193,6 +194,8 @@ export interface RoadmapStep {
   completed: boolean;
   topics?: RoadmapTopic[];
   resources?: RoadmapResourceLink[];
+  is_multitrack?: boolean;
+  tracks?: string[];
 }
 
 export interface Roadmap {

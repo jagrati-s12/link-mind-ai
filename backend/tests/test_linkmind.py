@@ -757,7 +757,7 @@ def test_hybrid_multi_track_roadmap_combination(client, user_token):
     assert len(data["steps"]) >= 5
 
     # Check for capstone and multi-track topics
-    capstone_step = next((s for s in data["steps"] if "Bridge Capstone" in s["title"]), None)
+    capstone_step = next((s for s in data["steps"] if "Capstone" in s["title"] or "Convergence" in s["title"]), None)
     assert capstone_step is not None
     assert len(capstone_step["topics"]) > 0
 

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Map,
@@ -53,6 +54,24 @@ export const Roadmaps: React.FC = () => {
   const [newRefType, setNewRefType] = useState('doc');
   const [newRefNotes, setNewRefNotes] = useState('');
   const [isAddingRef, setIsAddingRef] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setInspectorTopic(null);
+      }
+    };
+    if (inspectorTopic) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [inspectorTopic]);
 
   const { data: roadmaps, isLoading } = useQuery({
     queryKey: ['roadmaps-list'],
@@ -1005,23 +1024,33 @@ export const Roadmaps: React.FC = () => {
 
       {/* -------------------------------------------------------------
           SUBTOPIC INSPECTOR & REFERENCE MATERIAL MODAL / DRAWER
+          Rendered via createPortal directly into document.body to prevent
+          any parent CSS transform / scrolling viewport clipping.
          ------------------------------------------------------------- */}
-      {inspectorTopic && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border-2 border-slate-200 dark:border-slate-800 max-w-xl w-full p-6 sm:p-7 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+      {inspectorTopic && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6"
+          onClick={() => setInspectorTopic(null)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-3xl border-2 border-slate-300 dark:border-slate-700 max-w-xl w-full p-6 sm:p-7 shadow-2xl space-y-5 max-h-[88vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
             <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="space-y-1">
                 <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
                   {inspectorTopic.stepTitle}
                 </span>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">
                   {inspectorTopic.topic.name}
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setInspectorTopic(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors shrink-0"
+                title="Close (Esc)"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1032,14 +1061,14 @@ export const Roadmaps: React.FC = () => {
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                 Concept & What to Learn
               </span>
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/80 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700">
                 {inspectorTopic.topic.description ||
-                  'Master the core architecture, syntax primitives, and production tradeoffs for this competency.'}
+                  'Master the core architecture, foundational primitives, and production tradeoffs for this competency as mapped out in the roadmap.sh standards.'}
               </p>
             </div>
 
             {/* Action Toggle Status */}
-            <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/60">
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60">
               <div className="flex items-center space-x-2">
                 <button
                   type="button"
@@ -1050,15 +1079,15 @@ export const Roadmaps: React.FC = () => {
                       topicIdx: inspectorTopic.topicIdx
                     })
                   }
-                  className="flex items-center space-x-2 text-xs font-bold text-slate-900 dark:text-white"
+                  className="flex items-center space-x-2 text-xs font-bold text-slate-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
                 >
                   {inspectorTopic.topic.completed ? (
-                    <CheckSquare className="w-4 h-4 text-emerald-600" />
+                    <CheckSquare className="w-5 h-5 text-emerald-600" />
                   ) : (
-                    <Square className="w-4 h-4 text-slate-400" />
+                    <Square className="w-5 h-5 text-slate-400" />
                   )}
                   <span>
-                    Status: {inspectorTopic.topic.completed ? 'Completed' : 'In Progress'}
+                    Status: {inspectorTopic.topic.completed ? 'Completed' : 'In Progress (Click to Toggle)'}
                   </span>
                 </button>
               </div>
@@ -1074,85 +1103,101 @@ export const Roadmaps: React.FC = () => {
                   <BookOpen className="w-4 h-4 text-amber-500" />
                   <span>Curated Learning Materials & Documentation</span>
                 </span>
-                <span className="text-[10px] text-slate-400">
-                  {(inspectorTopic.topic.references || []).length} resources
+                <span className="text-[10px] text-slate-400 font-semibold">
+                  {((inspectorTopic.topic.references && inspectorTopic.topic.references.length > 0)
+                    ? inspectorTopic.topic.references
+                    : [1, 2, 3]
+                  ).length} resources available
                 </span>
               </div>
 
               <div className="space-y-2">
-                {(inspectorTopic.topic.references || []).length === 0 ? (
-                  <p className="text-xs text-slate-400 italic p-3 text-center border border-dashed rounded-xl">
-                    No references added yet. Click &quot;Add Material&quot; below to attach documentation or video guides!
-                  </p>
-                ) : (
-                  (inspectorTopic.topic.references || []).map((ref: RoadmapReference, rIdx: number) => (
-                    <div
-                      key={rIdx}
-                      className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-2"
-                    >
-                      <div className="flex items-center space-x-2.5 truncate">
-                        <span className="p-1 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
-                          {ref.type === 'video' ? <Video className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
-                        </span>
-                        <div className="truncate">
-                          <a
-                            href={ref.url || '#'}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs font-bold text-slate-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 truncate flex items-center space-x-1"
-                          >
-                            <span className="truncate">{ref.title}</span>
-                            <ExternalLink className="w-3 h-3 text-slate-400 shrink-0" />
-                          </a>
-                          {ref.notes && (
-                            <span className="block text-[10px] text-slate-400 truncate">{ref.notes}</span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center space-x-2 shrink-0">
-                        {ref.is_user_added && (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">
-                            Your Added Material
-                          </span>
-                        )}
-                        {ref.is_user_added && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              deleteReferenceMutation.mutate({
-                                roadmapId: inspectorTopic.roadmapId,
-                                stepId: inspectorTopic.stepId,
-                                topicIdx: inspectorTopic.topicIdx,
-                                refIdx: rIdx
-                              })
-                            }
-                            className="p-1 text-slate-400 hover:text-rose-500 rounded"
-                            title="Delete custom material"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                {((inspectorTopic.topic.references && inspectorTopic.topic.references.length > 0)
+                  ? inspectorTopic.topic.references
+                  : [
+                      {
+                        title: `${inspectorTopic.topic.name} • Official Documentation & Reference`,
+                        url: `https://www.google.com/search?q=${encodeURIComponent(inspectorTopic.topic.name + ' documentation tutorial guide')}`,
+                        type: 'doc'
+                      },
+                      {
+                        title: `${inspectorTopic.topic.name} • YouTube Video Walkthrough`,
+                        url: `https://www.youtube.com/results?search_query=${encodeURIComponent(inspectorTopic.topic.name + ' full tutorial course')}`,
+                        type: 'video'
+                      },
+                      {
+                        title: 'roadmap.sh Interactive Curriculum & Guides',
+                        url: 'https://roadmap.sh',
+                        type: 'guide'
+                      }
+                    ]
+                ).map((ref: RoadmapReference, rIdx: number) => (
+                  <div
+                    key={rIdx}
+                    className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-3 hover:border-amber-400 dark:hover:border-amber-600 transition-colors"
+                  >
+                    <div className="flex items-center space-x-2.5 truncate min-w-0">
+                      <span className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 shrink-0">
+                        {ref.type === 'video' ? <Video className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                      </span>
+                      <div className="truncate">
+                        <a
+                          href={ref.url || '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-bold text-slate-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 truncate flex items-center space-x-1"
+                        >
+                          <span className="truncate">{ref.title}</span>
+                          <ExternalLink className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        </a>
+                        {ref.notes && (
+                          <span className="block text-[10px] text-slate-400 truncate">{ref.notes}</span>
                         )}
                       </div>
                     </div>
-                  ))
-                )}
+
+                    <div className="flex items-center space-x-2 shrink-0">
+                      {ref.is_user_added && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
+                          Your Added Material
+                        </span>
+                      )}
+                      {ref.is_user_added && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            deleteReferenceMutation.mutate({
+                              roadmapId: inspectorTopic.roadmapId,
+                              stepId: inspectorTopic.stepId,
+                              topicIdx: inspectorTopic.topicIdx,
+                              refIdx: rIdx
+                            })
+                          }
+                          className="p-1 text-slate-400 hover:text-rose-500 rounded transition-colors"
+                          title="Delete custom material"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* User Form: Add Reference Material to Subtopic */}
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
               {!isAddingRef ? (
                 <button
                   type="button"
                   onClick={() => setIsAddingRef(true)}
-                  className="w-full py-2.5 rounded-xl border-2 border-dashed border-amber-300 dark:border-amber-700/80 hover:border-amber-500 text-amber-700 dark:text-amber-300 text-xs font-bold transition-colors flex items-center justify-center space-x-1.5"
+                  className="w-full py-2.5 rounded-xl border-2 border-dashed border-amber-300 dark:border-amber-700/80 hover:border-amber-500 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 text-amber-700 dark:text-amber-300 text-xs font-bold transition-all flex items-center justify-center space-x-1.5"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Reference Material or Link to this Subtopic</span>
                 </button>
               ) : (
-                <form onSubmit={handleSaveReference} className="bg-amber-50/50 dark:bg-amber-950/20 p-4 rounded-2xl border border-amber-300 dark:border-amber-800 space-y-3">
+                <form onSubmit={handleSaveReference} className="bg-amber-50/60 dark:bg-amber-950/30 p-4 rounded-2xl border border-amber-300 dark:border-amber-800 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
                       Attach Custom Material / Link
@@ -1227,7 +1272,8 @@ export const Roadmaps: React.FC = () => {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

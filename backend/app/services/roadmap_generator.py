@@ -37,9 +37,9 @@ def get_roadmap_catalog() -> List[Dict[str, Any]]:
     return [
         {
             "id": "ai-engineer",
-            "title": "AI Engineer (roadmap.sh/ai)",
+            "title": "AI Engineer",
             "category": "Artificial Intelligence",
-            "badge": "roadmap.sh/ai",
+            "badge": "AI / ML",
             "target_role": "AI Engineer / Generative AI Specialist",
             "description": "Learn to build practical AI applications using LLMs, prompt engineering, vector databases, RAG architectures, and autonomous agent loops.",
             "modules_count": 6,
@@ -50,7 +50,7 @@ def get_roadmap_catalog() -> List[Dict[str, Any]]:
             "id": "dsa",
             "title": "Data Structures & Algorithms",
             "category": "Computer Science",
-            "badge": "roadmap.sh/dsa",
+            "badge": "DSA",
             "target_role": "Software Engineer (Algorithms & Problem Solving)",
             "description": "Master algorithmic complexity, dynamic arrays, two pointers, trees, graphs, dynamic programming, and high-yield interview patterns.",
             "modules_count": 7,
@@ -61,7 +61,7 @@ def get_roadmap_catalog() -> List[Dict[str, Any]]:
             "id": "backend",
             "title": "Backend Developer",
             "category": "Web Development",
-            "badge": "roadmap.sh/backend",
+            "badge": "Backend",
             "target_role": "Core Backend Software Engineer",
             "description": "Deep-dive into language internals, relational databases (PostgreSQL), API design (REST & gRPC), caching (Redis), message queues (Kafka), and system design.",
             "modules_count": 6,
@@ -72,7 +72,7 @@ def get_roadmap_catalog() -> List[Dict[str, Any]]:
             "id": "frontend",
             "title": "Frontend Developer",
             "category": "Web Development",
-            "badge": "roadmap.sh/frontend",
+            "badge": "Frontend",
             "target_role": "Modern Frontend Software Engineer",
             "description": "Master modern HTML/CSS, TypeScript, React ecosystem, state architecture, Web Vitals performance, and production build tooling.",
             "modules_count": 6,
@@ -83,7 +83,7 @@ def get_roadmap_catalog() -> List[Dict[str, Any]]:
             "id": "devops",
             "title": "DevOps & Cloud",
             "category": "Cloud & Infrastructure",
-            "badge": "roadmap.sh/devops",
+            "badge": "DevOps",
             "target_role": "DevOps / Site Reliability Engineer (SRE)",
             "description": "Master Linux systems, containerization with Docker, Kubernetes orchestration, CI/CD automation, Terraform IaC, and Prometheus/Grafana observability.",
             "modules_count": 5,
@@ -94,7 +94,7 @@ def get_roadmap_catalog() -> List[Dict[str, Any]]:
             "id": "full-stack",
             "title": "Full Stack Developer",
             "category": "Full Stack",
-            "badge": "roadmap.sh/full-stack",
+            "badge": "Full Stack",
             "target_role": "Full Stack Software Engineer",
             "description": "End-to-end modern stack from interactive UI design, type-safe API gateways, relational persistence, containerized deployments to production.",
             "modules_count": 6,
@@ -105,7 +105,7 @@ def get_roadmap_catalog() -> List[Dict[str, Any]]:
             "id": "python",
             "title": "Python Developer",
             "category": "Programming Languages",
-            "badge": "roadmap.sh/python",
+            "badge": "Python",
             "target_role": "Python Software Engineer",
             "description": "Comprehensive journey across Python 3.12+ runtime, OOP & typing, asynchronous asyncio, FastAPI microservices, and packaging ecosystems.",
             "modules_count": 5,
@@ -116,7 +116,7 @@ def get_roadmap_catalog() -> List[Dict[str, Any]]:
             "id": "cyber-security",
             "title": "Cyber Security",
             "category": "Security",
-            "badge": "roadmap.sh/cyber-security",
+            "badge": "Security",
             "target_role": "Security Engineer / Ethical Hacker",
             "description": "Network forensics, cryptography primitives, OWASP Top 10 web vulnerabilities, penetration testing tools, and DevSecOps pipelines.",
             "modules_count": 5,
@@ -536,7 +536,7 @@ async def generate_personalized_roadmap(db: Session, user_id: int, goal_title: s
     # 1. AI ENGINEER ROADMAP (https://roadmap.sh/ai)
     # -------------------------------------------------------------
     if any(term in goal_lower for term in ["ai", "artificial intelligence", "llm", "machine learning", "genai", "agent", "deep learning"]):
-        resolved_title = "AI Engineer Roadmap (roadmap.sh/ai)"
+        resolved_title = "AI Engineer Roadmap"
         resolved_role = target_role or "AI Engineer / Generative AI Specialist"
 
         youtube_playlists = [

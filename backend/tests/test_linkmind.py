@@ -714,7 +714,7 @@ def test_roadmap_sh_ai_generation_and_subtopic_toggle(client, user_token):
     resp = client.post("/api/v1/roadmaps/generate", json={"goal_title": "AI Engineer (roadmap.sh/ai)"}, headers=headers)
     assert resp.status_code == 200
     data = resp.json()
-    assert "roadmap.sh/ai" in data["goal_title"]
+    assert "AI Engineer" in data["goal_title"]
     assert len(data["steps"]) >= 5
 
     step1 = data["steps"][0]

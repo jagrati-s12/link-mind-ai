@@ -35,7 +35,7 @@ export const Roadmaps: React.FC = () => {
   const [viewMode, setViewMode] = useState<'visual' | 'timeline'>('visual');
   const [selectedTracks, setSelectedTracks] = useState<string[]>([
     'Data Structures & Algorithms',
-    'AI Engineer (roadmap.sh/ai)'
+    'AI Engineer'
   ]);
   const [customTrackInput, setCustomTrackInput] = useState('');
 
@@ -255,9 +255,9 @@ export const Roadmaps: React.FC = () => {
   const catalogPresets: RoadmapCatalogItem[] = catalog || [
     {
       id: 'ai-engineer',
-      title: 'AI Engineer (roadmap.sh/ai)',
+      title: 'AI Engineer',
       category: 'AI & Machine Learning',
-      badge: 'roadmap.sh/ai',
+      badge: 'AI / ML',
       target_role: 'AI Engineer / Generative AI Specialist',
       description: 'Pre-trained models, prompt engineering, vector databases, RAG pipelines, and autonomous agent loops.',
       modules_count: 6,
@@ -268,7 +268,7 @@ export const Roadmaps: React.FC = () => {
       id: 'dsa',
       title: 'Data Structures & Algorithms',
       category: 'Computer Science',
-      badge: 'roadmap.sh/dsa',
+      badge: 'DSA',
       target_role: 'Software Engineer (Algorithms & Problem Solving)',
       description: 'Algorithmic complexity, linear DSA, trees, graphs, dynamic programming, and NeetCode 150 patterns.',
       modules_count: 7,
@@ -279,7 +279,7 @@ export const Roadmaps: React.FC = () => {
       id: 'backend',
       title: 'Backend Developer',
       category: 'Web Development',
-      badge: 'roadmap.sh/backend',
+      badge: 'Backend',
       target_role: 'Core Backend Software Engineer',
       description: 'Language concurrency, relational databases, REST & gRPC, Redis caching, message queues, and system design.',
       modules_count: 6,
@@ -290,7 +290,7 @@ export const Roadmaps: React.FC = () => {
       id: 'frontend',
       title: 'Frontend Developer',
       category: 'Web Development',
-      badge: 'roadmap.sh/frontend',
+      badge: 'Frontend',
       target_role: 'Modern Frontend Software Engineer',
       description: 'Modern HTML/CSS, TypeScript, React ecosystem, client caching, and Core Web Vitals performance.',
       modules_count: 6,
@@ -301,7 +301,7 @@ export const Roadmaps: React.FC = () => {
       id: 'devops',
       title: 'DevOps & Cloud',
       category: 'Cloud & Infrastructure',
-      badge: 'roadmap.sh/devops',
+      badge: 'DevOps',
       target_role: 'DevOps / Site Reliability Engineer',
       description: 'Linux systems, Docker containers, Kubernetes orchestration, CI/CD pipelines, and Terraform IaC.',
       modules_count: 5,
@@ -442,7 +442,7 @@ export const Roadmaps: React.FC = () => {
             <div className="flex flex-wrap gap-2">
               {[
                 'Data Structures & Algorithms',
-                'AI Engineer (roadmap.sh/ai)',
+                'AI Engineer',
                 'Backend Developer',
                 'Frontend Developer',
                 'DevOps & Cloud',
@@ -488,7 +488,7 @@ export const Roadmaps: React.FC = () => {
               type="text"
               value={goalInput}
               onChange={(e) => setGoalInput(e.target.value)}
-              placeholder="e.g. AI Engineer, Machine Learning, Rust Developer, or https://roadmap.sh/ai"
+              placeholder="e.g. AI Engineer, Full Stack Developer, Rust Developer, Cloud Architect..."
               className="flex-1 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
             />
             <button

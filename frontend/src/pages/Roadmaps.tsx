@@ -95,7 +95,7 @@ export const Roadmaps: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-2 pt-2">
           <span className="text-[11px] text-slate-400">Popular goals:</span>
-          {['AI/ML Engineer Internship', 'Core Backend SDE', 'Full Stack Developer', 'Data Scientist'].map((g) => (
+          {['Data Structures & Algorithms', 'AI/ML Engineer Internship', 'Core Backend SDE', 'Full Stack Developer', 'Data Scientist'].map((g) => (
             <button
               key={g}
               onClick={() => handleQuickGoal(g)}
